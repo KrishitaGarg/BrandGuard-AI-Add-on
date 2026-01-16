@@ -43,52 +43,144 @@ export default function AutofixPanel({
   // Undo state: map of layerId -> originalText for last applied fixes
   const [undoData, setUndoData] = useState<Record<string, string>>({});
 
+  // Generate AI suggestions for issues that don't have them
+  const generateAISuggestion = async (text: string, issueType: string): Promise<string | null> => {
+    try {
+      // Call backend Groq API to generate rewrite suggestion
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          design: { layers: [{ type: 'text', content: text }] },
+          brandRules: {
+            content: {
+              tone: brandProfile.tonePreference || 'neutral',
+              forbiddenPhrases: brandProfile.disallowedPhrases || [],
+            },
+            visual: { colors: [], fonts: [] }
+          }
+        }),
+      });
+
+      if (!response.ok) return null;
+
+      const result = await response.json();
+      
+      // Extract suggested text from Groq response
+      const aiResult = result.result?.ai;
+      if (aiResult) {
+        // Check issues array for suggestion
+        if (Array.isArray(aiResult.issues)) {
+          for (const aiIssue of aiResult.issues) {
+            if (aiIssue.suggestion && typeof aiIssue.suggestion === 'string') {
+              const sug = aiIssue.suggestion.trim();
+              if (sug !== text && sug.length > 0) return sug;
+            }
+            if (aiIssue.autofix?.text && typeof aiIssue.autofix.text === 'string') {
+              const sug = aiIssue.autofix.text.trim();
+              if (sug !== text && sug.length > 0) return sug;
+            }
+          }
+        }
+        // Check summary field
+        if (aiResult.summary && typeof aiResult.summary === 'string') {
+          const summary = aiResult.summary.trim();
+          if (summary !== text && summary.length > 0 && !summary.toLowerCase().includes('issue')) {
+            return summary;
+          }
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('[AI] Error generating suggestion:', error);
+      return null;
+    }
+  };
+
   // Convert compliance results to text issues
   React.useEffect(() => {
-    const issues: TextIssue[] = [];
-    
-    // Map text compliance results to text issues
-    if (textComplianceResults && textComplianceResults.length > 0) {
-      textComplianceResults.forEach((result: any) => {
-        // Only include results with issues
-        if (result.issues && result.issues.length > 0 && result.score < 100) {
-          // Extract sentence-level suggestions from rewriteSuggestions
-          const sentenceSuggestions: Array<{
-            original: string;
-            suggested: string;
-            explanation: string;
-          }> = [];
-          
-          for (const issue of result.issues || []) {
-            if (issue.rewriteSuggestions && Array.isArray(issue.rewriteSuggestions)) {
-              for (const suggestion of issue.rewriteSuggestions) {
-                // Include sentence-level suggestions (have 'text' property, not just word replacements)
-                if (suggestion.text && suggestion.text !== result.originalText) {
+    const processResults = async () => {
+      const issues: TextIssue[] = [];
+      
+      // Map text compliance results to text issues
+      if (textComplianceResults && textComplianceResults.length > 0) {
+        for (const result of textComplianceResults) {
+          // Only include results with issues
+          if (result.issues && result.issues.length > 0 && result.score < 100) {
+            // Extract sentence-level suggestions from rewriteSuggestions
+            const sentenceSuggestions: Array<{
+              original: string;
+              suggested: string;
+              explanation: string;
+            }> = [];
+            
+            const fixableIssueTypes = ['Tone mismatch', 'Brand voice deviation', 'Clarity', 'Risky phrasing'];
+            
+            for (const issue of result.issues || []) {
+              let hasSuggestion = false;
+              
+              // Check existing rewriteSuggestions
+              if (issue.rewriteSuggestions && Array.isArray(issue.rewriteSuggestions)) {
+                for (const suggestion of issue.rewriteSuggestions) {
+                  // Include sentence-level suggestions (have 'text' property, not just word replacements)
+                  if (suggestion.text && suggestion.text !== result.originalText) {
+                    sentenceSuggestions.push({
+                      original: result.originalText,
+                      suggested: suggestion.text,
+                      explanation: issue.explanation || issue.type || 'Sentence improvement',
+                    });
+                    hasSuggestion = true;
+                    break; // One sentence suggestion per issue
+                  }
+                }
+              }
+              
+              // If no suggestion and issue is fixable, generate AI suggestion
+              if (!hasSuggestion && fixableIssueTypes.includes(issue.type)) {
+                console.log('[AI] Generating suggestion for', issue.type, 'in text:', result.originalText);
+                const suggestedText = await generateAISuggestion(result.originalText, issue.type);
+                if (suggestedText) {
                   sentenceSuggestions.push({
                     original: result.originalText,
-                    suggested: suggestion.text,
+                    suggested: suggestedText,
                     explanation: issue.explanation || issue.type || 'Sentence improvement',
                   });
-                  break; // One sentence suggestion per issue
                 }
               }
             }
+            
+            issues.push({
+              layerId: result.layerId || `layer-${issues.length}`,
+              originalText: result.originalText || '',
+              issues: result.issues || [],
+              sentenceSuggestions: sentenceSuggestions.length > 0 ? sentenceSuggestions : undefined,
+            });
           }
-          
-          issues.push({
-            layerId: result.layerId || `layer-${issues.length}`,
-            originalText: result.originalText || '',
-            issues: result.issues || [],
-            sentenceSuggestions: sentenceSuggestions.length > 0 ? sentenceSuggestions : undefined,
-          });
         }
-      });
-    }
+      }
 
-    setTextIssues(issues);
-  }, [textComplianceResults]);
+      setTextIssues(issues);
+    };
+
+    processResults();
+  }, [textComplianceResults, brandProfile]);
 
   const handlePreviewFix = async (issue: TextIssue) => {
+    // If sentence suggestions exist, use the first one
+    if (issue.sentenceSuggestions && issue.sentenceSuggestions.length > 0) {
+      const firstSuggestion = issue.sentenceSuggestions[0].suggested;
+      setTextIssues((prev) =>
+        prev.map((i) =>
+          i.layerId === issue.layerId
+            ? { ...i, fixedText: firstSuggestion, diff: generateDiff(issue.originalText, firstSuggestion) }
+            : i
+        )
+      );
+      setExpandedLayer(issue.layerId);
+      return;
+    }
+
+    // Otherwise use word-level autofix
     const brandGuidelines = {
       preferredTerms: buildPreferredTermsMap(brandProfile.preferredTerms || []),
       disallowedTerms: brandProfile.disallowedPhrases || [],
@@ -380,7 +472,7 @@ export default function AutofixPanel({
             )}
 
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {!issue.fixedText && (
+              {!issue.fixedText && (issue.sentenceSuggestions && issue.sentenceSuggestions.length > 0) && (
                 <Button
                   variant="secondary"
                   onClick={() => handlePreviewFix(issue)}
