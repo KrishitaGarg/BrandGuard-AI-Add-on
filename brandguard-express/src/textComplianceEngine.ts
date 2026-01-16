@@ -74,23 +74,116 @@ export async function analyzeTextCompliance(
     return memory.some((entry: BrandMemoryEntry) => entry.phrase === phrase && entry.action === "neverFlag");
   }
 
-  // Enforce disallowedPhrases rule
+  // Enforce disallowedPhrases, tonePreference, claimsStrictness rules
   let issues: TextComplianceIssue[] = [];
   let score = 100;
+
+  // 1. Disallowed Phrases
   for (const phrase of disallowed) {
     if (tokens.includes(phrase) && !isAlwaysAllowed(phrase) && !isNeverFlagged(phrase)) {
       issues.push({
         type: "Brand voice deviation",
         severity: "critical",
-        explanation: `Violates your brand rule: disallowed phrase '${phrase}'`,
+        explanation: `Violates your brand rule: disallowed phrase '${phrase}' (disallowedPhrases)`,
         rewriteSuggestions: []
       });
-      score = 60; // Arbitrary: any disallowed phrase drops score below 100
+      score -= 40;
     }
   }
 
-  // If no issues from disallowedPhrases, call AI for further compliance
-  if (issues.length === 0) {
+  // 2. Tone Preference
+  const greetings = ["hi", "hey", "hello"];
+  const casualPhrases = ["cool", "awesome", "what's up", "cheers", "lol", "omg", "btw", "yolo", "dude", "bro"];
+  if (brandProfile.tonePreference === "formal") {
+    for (const word of greetings.concat(casualPhrases)) {
+      if (tokens.includes(word)) {
+        issues.push({
+          type: "Tone mismatch",
+          severity: "warning",
+          explanation: `Violates your brand rule: tonePreference 'formal' - phrase '${word}' is too casual`,
+          rewriteSuggestions: []
+        });
+        score -= 20;
+      }
+    }
+  } else if (brandProfile.tonePreference === "neutral") {
+    for (const word of casualPhrases) {
+      if (tokens.includes(word)) {
+        issues.push({
+          type: "Tone mismatch",
+          severity: "warning",
+          explanation: `Violates your brand rule: tonePreference 'neutral' - phrase '${word}' is extremely casual`,
+          rewriteSuggestions: []
+        });
+        score -= 10;
+      }
+    }
+    // greetings are allowed in neutral
+  }
+  // friendly: do not flag tone
+
+  // 3. Claims Strictness
+  const mediumClaims = ["guarantees", "always", "never", "100%", "best ever"];
+  const highClaims = mediumClaims.concat(["proven", "unbeatable", "perfect", "flawless", "no exceptions", "all", "every", "must", "will", "cannot fail"]);
+  const basePenalty = 8;
+  if (brandProfile.claimsStrictness === "medium") {
+    for (const word of mediumClaims) {
+      if (tokens.includes(word)) {
+        issues.push({
+          type: "Risky phrasing",
+          severity: "critical",
+          explanation: `Violates your brand rule: claimsStrictness 'medium' - phrase '${word}' is an absolute claim`,
+          rewriteSuggestions: []
+        });
+        score -= basePenalty;
+      }
+    }
+  } else if (brandProfile.claimsStrictness === "high") {
+    for (const word of highClaims) {
+      if (tokens.includes(word)) {
+        issues.push({
+          type: "Risky phrasing",
+          severity: "critical",
+          explanation: `Violates your brand rule: claimsStrictness 'high' - phrase '${word}' is a strong/superlative claim`,
+          rewriteSuggestions: []
+        });
+        score -= Math.round(basePenalty * 1.5);
+      }
+    }
+  }
+  // low: do not flag claims
+
+  // 4. Preferred Terms (suggestions only, no violations, no score impact)
+  if (issues.length === 0 && Array.isArray(brandProfile.preferredTerms) && brandProfile.preferredTerms.length > 0) {
+    for (const term of brandProfile.preferredTerms) {
+      if (!tokens.includes(term.toLowerCase())) {
+        issues.push({
+          type: "Brand voice deviation",
+          severity: "warning",
+          explanation: `Suggestion: consider using preferred term '${term}'`,
+          rewriteSuggestions: []
+        });
+      }
+    }
+  }
+
+  // Clamp score to [0, 99] if any issues, else 100
+  if (issues.length > 0) {
+    score = Math.max(0, Math.min(99, score));
+  } else {
+    score = 100;
+  }
+
+  // If any issues, return them directly
+  if (issues.length > 0) {
+    return {
+      score,
+      issues
+    };
+  }
+
+  // If no issues from rules, call AI for further compliance
+  // ...existing code...
     // Build explicit rules for AI prompt
     const rules = {
       tone: brandProfile.tonePreference,
@@ -166,9 +259,4 @@ export async function analyzeTextCompliance(
     return aiResult;
   }
 
-  // If disallowed phrase found, return issues and score < 100
-  return {
-    score,
-    issues
-  };
-}
+
