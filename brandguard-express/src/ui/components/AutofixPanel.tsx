@@ -35,6 +35,8 @@ export default function AutofixPanel({
 }: AutofixPanelProps) {
   const [textIssues, setTextIssues] = useState<TextIssue[]>([]);
   const [expandedLayer, setExpandedLayer] = useState<string | null>(null);
+  // Undo state: map of layerId -> originalText for last applied fixes
+  const [undoData, setUndoData] = useState<Record<string, string>>({});
 
   // Convert compliance results to text issues
   React.useEffect(() => {
@@ -96,6 +98,12 @@ export default function AutofixPanel({
     );
 
     try {
+      // Capture original text for undo before applying fix
+      setUndoData((prev) => ({
+        ...prev,
+        [issue.layerId]: issue.originalText,
+      }));
+
       // Apply fix to canvas - pass originalText for reliable layer matching
       await sandboxProxy.applyTextFix({
         layerId: issue.layerId,
@@ -110,6 +118,12 @@ export default function AutofixPanel({
       setTextIssues((prev) => prev.filter((i) => i.layerId !== issue.layerId));
     } catch (error) {
       console.error('Error applying fix:', error);
+      // Remove undo data if apply failed
+      setUndoData((prev) => {
+        const updated = { ...prev };
+        delete updated[issue.layerId];
+        return updated;
+      });
     } finally {
       setTextIssues((prev) =>
         prev.map((i) =>
@@ -127,6 +141,30 @@ export default function AutofixPanel({
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
       await handleApplyFix(issue);
+    }
+  };
+
+  const handleUndoAutofix = async () => {
+    const undoEntries = Object.entries(undoData);
+    if (undoEntries.length === 0) return;
+
+    try {
+      // Restore each layer to its original text
+      for (const [layerId, originalText] of undoEntries) {
+        await sandboxProxy.applyTextFix({
+          layerId,
+          fixedText: originalText,
+          originalText: originalText,
+        });
+      }
+
+      // Clear undo data after restore
+      setUndoData({});
+
+      // Re-analyze to update score
+      await onFixApplied();
+    } catch (error) {
+      console.error('Error undoing autofix:', error);
     }
   };
 
@@ -151,15 +189,26 @@ export default function AutofixPanel({
         <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#2c2c2c' }}>
           Autofix Suggestions
         </h4>
-        {textIssues.length > 0 && (
-          <Button
-            variant="secondary"
-            onClick={handleApplyAll}
-            style={{ fontSize: '12px', padding: '6px 12px' }}
-          >
-            Apply All ({textIssues.length})
-          </Button>
-        )}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {Object.keys(undoData).length > 0 && (
+            <Button
+              variant="secondary"
+              onClick={handleUndoAutofix}
+              style={{ fontSize: '12px', padding: '6px 12px' }}
+            >
+              Undo Autofix
+            </Button>
+          )}
+          {textIssues.length > 0 && (
+            <Button
+              variant="secondary"
+              onClick={handleApplyAll}
+              style={{ fontSize: '12px', padding: '6px 12px' }}
+            >
+              Apply All ({textIssues.length})
+            </Button>
+          )}
+        </div>
       </div>
 
       {textIssues.map((issue) => (
