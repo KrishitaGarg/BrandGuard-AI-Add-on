@@ -79,47 +79,111 @@ function start(): void {
       }
 
       // Transform backend issues to frontend format expected by analyzeTextCompliance
-      const issues = aiIssues
+      let issues = aiIssues
         .filter((issue: any) => issue && typeof issue === 'object')
         .map((issue: any) => {
           // Create rewrite suggestions from various sources
           const rewriteSuggestions: any[] = [];
           
           // If issue has autofix with suggested text
-          if (issue.autofix?.text) {
+          if (issue.autofix?.text && typeof issue.autofix.text === 'string') {
             rewriteSuggestions.push({
               style: 'neutral',
               text: issue.autofix.text
             });
           }
           
-          // If issue has suggestion text
-          if (issue.suggestion && typeof issue.suggestion === 'string') {
-            rewriteSuggestions.push({
-              style: 'neutral',
-              text: issue.suggestion
-            });
+          // If issue has suggestion text (this is the most common format from Groq)
+          if (issue.suggestion && typeof issue.suggestion === 'string' && issue.suggestion.trim().length > 0) {
+            // Check if suggestion is a full sentence rewrite or just a word/phrase
+            const suggestionText = issue.suggestion.trim();
+            // If it's different from original text and looks like a sentence, use it
+            if (suggestionText !== text && suggestionText.length > 5) {
+              rewriteSuggestions.push({
+                style: 'neutral',
+                text: suggestionText
+              });
+            }
           }
           
-          // If issue already has rewriteSuggestions
+          // If issue already has rewriteSuggestions array
           if (Array.isArray(issue.rewriteSuggestions)) {
-            rewriteSuggestions.push(...issue.rewriteSuggestions);
+            for (const sug of issue.rewriteSuggestions) {
+              if (sug && typeof sug === 'object' && sug.text && typeof sug.text === 'string') {
+                rewriteSuggestions.push({
+                  style: sug.style || 'neutral',
+                  text: sug.text
+                });
+              }
+            }
           }
 
           return {
             type: issue.type || 'Brand voice deviation',
             severity: issue.severity === 'critical' ? 'critical' : 'warning',
             explanation: issue.explanation || issue.suggestion || '',
-            rewriteSuggestions: rewriteSuggestions.length > 0 ? rewriteSuggestions : []
+            rewriteSuggestions: rewriteSuggestions.length > 0 ? rewriteSuggestions : [],
+            _originalIssue: issue // Keep reference for fallback suggestion generation
           };
-        })
-        .filter((issue: any) => issue.rewriteSuggestions.length > 0 || issue.explanation);
+        });
+
+      // Ensure all issues have rewrite suggestions
+      // If Groq didn't provide suggestions, generate them
+      for (const issue of issues) {
+        if (issue.rewriteSuggestions.length === 0 && issue.explanation) {
+          // Try to extract suggestion from the original backend issue
+          const originalIssue = (issue as any)._originalIssue;
+          
+          if (originalIssue?.suggestion && typeof originalIssue.suggestion === 'string' && originalIssue.suggestion.trim() !== text) {
+            // Use the suggestion field as a rewrite
+            issue.rewriteSuggestions.push({
+              style: 'neutral',
+              text: originalIssue.suggestion.trim()
+            });
+            console.log("[AI] Added suggestion from original issue.suggestion field");
+          } else {
+            // If still no suggestion, create a basic one by applying word-level fixes
+            // This ensures every issue has at least a suggested fix
+            try {
+              const { applyAutofix } = await import("../services/autofixService");
+              const autofixResult = await applyAutofix({
+                text: text,
+                issues: [issue],
+                brandGuidelines: {
+                  preferredTerms: {},
+                  disallowedTerms: brandRules.content.forbiddenPhrases || [],
+                  toneRules: [brandRules.content.tone]
+                }
+              });
+              
+              if (autofixResult.success && autofixResult.fixedText !== text && autofixResult.fixedText.length > 0) {
+                issue.rewriteSuggestions.push({
+                  style: 'neutral',
+                  text: autofixResult.fixedText
+                });
+                console.log("[AI] Generated suggestion using word-level autofix");
+              }
+            } catch (error) {
+              console.error("[AI] Error generating fallback suggestion:", error);
+            }
+          }
+        }
+      }
+      
+      // Clean up temporary reference
+      issues.forEach((issue: any) => {
+        delete issue._originalIssue;
+      });
+
+      // Filter to only include issues with explanations (keep all detected issues)
+      issues = issues.filter((issue: any) => issue.explanation);
 
       // Calculate score based on issues (lower score for more issues)
       const score = issues.length === 0 ? 100 : Math.max(0, 100 - (issues.length * 15));
 
       console.log("[AI] Returning", issues.length, "issues with score", score);
       if (issues.length > 0) {
+        console.log("[AI] Issues with suggestions:", issues.filter((i: any) => i.rewriteSuggestions.length > 0).length);
         console.log("[AI] Sample issue:", JSON.stringify(issues[0], null, 2));
       }
       return { score, issues };
