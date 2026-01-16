@@ -14,16 +14,30 @@ import { BrandProfile, BrandMemoryEntry } from "./brandProfile";
 // Why content is not stored: To comply with Adobe and user privacy requirements.
 // Why execution is user-controlled: To ensure no background or automatic analysis occurs.
 
+
+// Standard rewrite suggestion (legacy/AI)
 export interface RewriteSuggestion {
   style: "conservative" | "neutral" | "friendly";
   text: string;
 }
 
+// Preferred term suggestion (for brand-specific suggestions)
+export interface PreferredTermSuggestion {
+  type: "preferred-term";
+  original: string;
+  replacement: string;
+  reason: string;
+}
+
+// Allow both types in the array
+type AnySuggestion = RewriteSuggestion | PreferredTermSuggestion;
+
 export interface TextComplianceIssue {
   type: "Tone mismatch" | "Clarity" | "Brand voice deviation" | "Risky phrasing";
   severity: "warning" | "critical";
   explanation: string;
-  rewriteSuggestions: RewriteSuggestion[];
+  rewriteSuggestions?: AnySuggestion[];
+  suggestions?: AnySuggestion[];
 }
 
 export interface TextComplianceResult {
@@ -74,48 +88,84 @@ export async function analyzeTextCompliance(
     return memory.some((entry: BrandMemoryEntry) => entry.phrase === phrase && entry.action === "neverFlag");
   }
 
-  // Enforce disallowedPhrases, tonePreference, claimsStrictness rules
-  let issues: TextComplianceIssue[] = [];
-  let score = 100;
 
-  // 1. Disallowed Phrases
+  // --- Penalty multipliers ---
+  let brandDescMultiplier = 1.0;
+  if (typeof brandProfile.brandDescription === 'string') {
+    const desc = brandProfile.brandDescription.toLowerCase();
+    if (desc.includes('regulated') || desc.includes('legal') || desc.includes('enterprise')) {
+      brandDescMultiplier = 1.1;
+    }
+  }
+
+
+  // --- Issue detection and scoring with deduplication ---
+  let issues: (TextComplianceIssue & { penalty: number, rule: string, field: string, value: string, trigger: string, key: string })[] = [];
+  let score = 100;
+  const seenKeys = new Set<string>();
+  const elementId = (brandProfile as any).elementId || "element";
+
+  // Helper to add unique issues
+  function addIssue(ruleType: string, trigger: string, issue: Omit<TextComplianceIssue, 'penalty'|'rule'|'field'|'value'|'trigger'|'key'> & { penalty: number, field: string, value: string }) {
+    const key = `${elementId}::${ruleType}::${trigger}`;
+    if (seenKeys.has(key)) return;
+    seenKeys.add(key);
+    issues.push({ ...issue, rule: ruleType, trigger, key, penalty: issue.penalty, field: issue.field, value: issue.value });
+    score += issue.penalty;
+  }
+
+  // 1. Disallowed Phrases (hard violation, highest penalty)
   for (const phrase of disallowed) {
-    if (tokens.includes(phrase) && !isAlwaysAllowed(phrase) && !isNeverFlagged(phrase)) {
-      issues.push({
+    if (tokens.includes(phrase)) {
+      if (isAlwaysAllowed(phrase) || isNeverFlagged(phrase)) continue;
+      const penalty = Math.round(-12 * brandDescMultiplier);
+      addIssue('disallowedPhrases', phrase, {
         type: "Brand voice deviation",
         severity: "critical",
-        explanation: `Violates your brand rule: disallowed phrase '${phrase}' (disallowedPhrases)`,
-        rewriteSuggestions: []
+        explanation: `Violates your brand rule: disallowed phrase '${phrase}' (disallowedPhrases) [penalty: ${penalty}]`,
+        rewriteSuggestions: [],
+        penalty,
+        field: 'disallowedPhrases',
+        value: phrase
       });
-      score -= 40;
     }
   }
 
   // 2. Tone Preference
   const greetings = ["hi", "hey", "hello"];
   const casualPhrases = ["cool", "awesome", "what's up", "cheers", "lol", "omg", "btw", "yolo", "dude", "bro"];
+  let tonePenaltyBase = -6;
   if (brandProfile.tonePreference === "formal") {
+    tonePenaltyBase = Math.round(tonePenaltyBase * 1.25);
     for (const word of greetings.concat(casualPhrases)) {
       if (tokens.includes(word)) {
-        issues.push({
+        if (isAlwaysAllowed(word) || isNeverFlagged(word)) continue;
+        const penalty = Math.round(tonePenaltyBase * brandDescMultiplier);
+        addIssue('tonePreference', word, {
           type: "Tone mismatch",
           severity: "warning",
-          explanation: `Violates your brand rule: tonePreference 'formal' - phrase '${word}' is too casual`,
-          rewriteSuggestions: []
+          explanation: `Tone mismatch with your brand’s 'formal' preference: phrase '${word}' [penalty: ${penalty}]`,
+          rewriteSuggestions: [],
+          penalty,
+          field: 'tonePreference',
+          value: 'formal'
         });
-        score -= 20;
       }
     }
   } else if (brandProfile.tonePreference === "neutral") {
     for (const word of casualPhrases) {
       if (tokens.includes(word)) {
-        issues.push({
+        if (isAlwaysAllowed(word) || isNeverFlagged(word)) continue;
+        const penalty = Math.round(tonePenaltyBase * brandDescMultiplier);
+        addIssue('tonePreference', word, {
           type: "Tone mismatch",
           severity: "warning",
-          explanation: `Violates your brand rule: tonePreference 'neutral' - phrase '${word}' is extremely casual`,
-          rewriteSuggestions: []
+          explanation: `Tone mismatch with your brand’s 'neutral' preference: phrase '${word}' [penalty: ${penalty}]`,
+          rewriteSuggestions: [],
+          penalty,
+          field: 'tonePreference',
+          value: 'neutral'
         });
-        score -= 10;
       }
     }
     // greetings are allowed in neutral
@@ -125,29 +175,37 @@ export async function analyzeTextCompliance(
   // 3. Claims Strictness
   const mediumClaims = ["guarantees", "always", "never", "100%", "best ever"];
   const highClaims = mediumClaims.concat(["proven", "unbeatable", "perfect", "flawless", "no exceptions", "all", "every", "must", "will", "cannot fail"]);
-  const basePenalty = 8;
+  const basePenalty = -8;
   if (brandProfile.claimsStrictness === "medium") {
     for (const word of mediumClaims) {
       if (tokens.includes(word)) {
-        issues.push({
+        if (isAlwaysAllowed(word) || isNeverFlagged(word)) continue;
+        const penalty = Math.round(basePenalty * 1.0 * brandDescMultiplier);
+        addIssue('claimsStrictness', word, {
           type: "Risky phrasing",
           severity: "critical",
-          explanation: `Violates your brand rule: claimsStrictness 'medium' - phrase '${word}' is an absolute claim`,
-          rewriteSuggestions: []
+          explanation: `Violates claims strictness set to 'medium': phrase '${word}' [penalty: ${penalty}]`,
+          rewriteSuggestions: [],
+          penalty,
+          field: 'claimsStrictness',
+          value: 'medium'
         });
-        score -= basePenalty;
       }
     }
   } else if (brandProfile.claimsStrictness === "high") {
     for (const word of highClaims) {
       if (tokens.includes(word)) {
-        issues.push({
+        if (isAlwaysAllowed(word) || isNeverFlagged(word)) continue;
+        const penalty = Math.round(basePenalty * 1.5 * brandDescMultiplier);
+        addIssue('claimsStrictness', word, {
           type: "Risky phrasing",
           severity: "critical",
-          explanation: `Violates your brand rule: claimsStrictness 'high' - phrase '${word}' is a strong/superlative claim`,
-          rewriteSuggestions: []
+          explanation: `Violates claims strictness set to 'high': phrase '${word}' [penalty: ${penalty}]`,
+          rewriteSuggestions: [],
+          penalty,
+          field: 'claimsStrictness',
+          value: 'high'
         });
-        score -= Math.round(basePenalty * 1.5);
       }
     }
   }
@@ -157,11 +215,14 @@ export async function analyzeTextCompliance(
   if (issues.length === 0 && Array.isArray(brandProfile.preferredTerms) && brandProfile.preferredTerms.length > 0) {
     for (const term of brandProfile.preferredTerms) {
       if (!tokens.includes(term.toLowerCase())) {
-        issues.push({
+        addIssue('preferredTerms', term, {
           type: "Brand voice deviation",
           severity: "warning",
-          explanation: `Suggestion: consider using preferred term '${term}'`,
-          rewriteSuggestions: []
+          explanation: `Consider using preferred term '${term}' to better match your brand voice [penalty: 0]`,
+          rewriteSuggestions: [],
+          penalty: 0,
+          field: 'preferredTerms',
+          value: term
         });
       }
     }
@@ -174,11 +235,89 @@ export async function analyzeTextCompliance(
     score = 100;
   }
 
+  // --- Suggestion Layer Enhancement ---
+  // Only attach suggestions to existing issues, never create new issues for preferred terms
+  if (issues.length > 0 && Array.isArray(brandProfile.preferredTerms) && brandProfile.preferredTerms.length > 0) {
+    // Classify preferred terms as lexical or semantic
+    function classifyPreferredTerm(term: string): "lexical" | "semantic" {
+      // Lexical: single word, not plural, not abstract
+      // Semantic: plural, phrase, or abstract
+      const trimmed = term.trim();
+      if (!/^\w+$/.test(trimmed)) return "semantic"; // phrase or contains non-word chars
+      if (trimmed.endsWith("s") && trimmed.length > 3) return "semantic"; // likely plural
+      // List of common abstract/semantic terms (expand as needed)
+      const abstract = ["greetings", "professional", "formal", "friendly", "casual", "polite", "respectful", "modern", "classic", "inclusive", "welcoming", "positive", "negative", "brand", "voice", "language", "style"];
+      if (abstract.includes(trimmed.toLowerCase())) return "semantic";
+      return "lexical";
+    }
+
+    // Deduplicate suggestions per (element, rule, phrase)
+    const suggestionKeys = new Set<string>();
+    for (const issue of issues) {
+      if (issue.rule === 'preferredTerms' || issue.penalty === 0) continue;
+      if (isAlwaysAllowed(issue.trigger) || isNeverFlagged(issue.trigger)) continue;
+
+      let suggestionAdded = false;
+      for (const preferred of brandProfile.preferredTerms) {
+        const preferredLc = preferred.toLowerCase();
+        const suggestionKey = `${elementId}::${issue.rule}::${issue.trigger}`;
+        if (suggestionKeys.has(suggestionKey)) continue;
+
+        const classification = classifyPreferredTerm(preferred);
+        // Only suggest if not already present in text
+        if (classification === "lexical") {
+          // Only suggest if both are single words and not the same
+          if (issue.trigger !== preferredLc && /^\w+$/.test(issue.trigger) && !tokens.includes(preferredLc)) {
+            if (!issue.rewriteSuggestions) issue.rewriteSuggestions = [];
+            issue.rewriteSuggestions.push({
+              type: "preferred-term",
+              original: issue.trigger,
+              replacement: preferred,
+              reason: `Replace '${issue.trigger}' with '${preferred}'`
+            });
+            suggestionKeys.add(suggestionKey);
+            suggestionAdded = true;
+            break; // Only one suggestion per (element, rule, phrase)
+          }
+        } else if (classification === "semantic") {
+          // Suggest semantic guidance if not already present in text
+          if (!tokens.includes(preferredLc)) {
+            if (!issue.rewriteSuggestions) issue.rewriteSuggestions = [];
+            issue.rewriteSuggestions.push({
+              type: "preferred-term",
+              original: issue.trigger,
+              replacement: preferred,
+              reason: `Use a ${preferred}-style alternative instead of '${issue.trigger}'`
+            });
+            suggestionKeys.add(suggestionKey);
+            suggestionAdded = true;
+            break; // Only one suggestion per (element, rule, phrase)
+          }
+        }
+      }
+    }
+  }
+
+  // Remove penalty, rule, field, value, trigger, key from output issues (keep explanation, type, severity, suggestions)
+  const outputIssues: TextComplianceIssue[] = issues.map(({ type, severity, explanation, rewriteSuggestions }) => {
+    // Only include suggestions if present and non-empty
+    const out: any = { type, severity, explanation };
+    if (rewriteSuggestions && rewriteSuggestions.length > 0) {
+      // If any suggestion is a preferred-term, use suggestions field; else use rewriteSuggestions
+      if (rewriteSuggestions.some(s => (s as any).type === "preferred-term")) {
+        out.suggestions = rewriteSuggestions;
+      } else {
+        out.rewriteSuggestions = rewriteSuggestions;
+      }
+    }
+    return out;
+  });
+
   // If any issues, return them directly
-  if (issues.length > 0) {
+  if (outputIssues.length > 0) {
     return {
       score,
-      issues
+      issues: outputIssues
     };
   }
 
