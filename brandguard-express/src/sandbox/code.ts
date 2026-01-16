@@ -66,10 +66,16 @@ function start(): void {
         if ("text" in (node as object)) {
           textLayers++;
           const text = (node as any).text || "";
+          const layerId = (node as any).id || `text-layer-${textLayers}`;
           // Debug log: text sent to compliance engine
           console.log("TEXT ANALYZED:", text);
           const result = await analyzeTextCompliance(text, brandProfile, aiApiCall);
-          textComplianceResults.push(result);
+          // Include layer ID and original text for autofix
+          textComplianceResults.push({
+            ...result,
+            layerId,
+            originalText: text,
+          });
           textComplianceScoreSum += result.score;
           if (result.issues && result.issues.length > 0) {
             textComplianceIssues.push(...result.issues);
@@ -219,6 +225,36 @@ function start(): void {
           (root as any).appendChild(newLayer);
         }
       }
+    },
+    
+    // Apply text fix to a specific layer
+    applyTextFix: async ({ layerId, fixedText }) => {
+      const root = editor.context.insertionParent;
+      const children = Array.from(root.children);
+      
+      // Find the layer by ID
+      const layer = children.find((node: any) => node.id === layerId);
+      
+      if (!layer) {
+        return {
+          status: "error",
+          message: `Layer ${layerId} not found`
+        };
+      }
+
+      // Update text content
+      if ("text" in layer) {
+        (layer as any).text = fixedText;
+        return {
+          status: "fix_applied",
+          message: `Text updated for layer ${layerId}`
+        };
+      }
+
+      return {
+        status: "error",
+        message: `Layer ${layerId} is not a text layer`
+      };
     },
 
   };

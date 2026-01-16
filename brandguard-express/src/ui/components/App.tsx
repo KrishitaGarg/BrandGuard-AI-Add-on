@@ -11,8 +11,7 @@ import { defaultBrandProfile, validateBrandProfile, BrandProfile } from "../../b
 import type { DocumentSandboxApi } from "../../models/DocumentSandboxApi";
 import type { AddOnSDKAPI } from "https://new.express.adobe.com/static/add-on-sdk/sdk.js";
 import ScorePanel from "./ScorePanel";
-import { analyzeDesign, extractViolations } from "../../services/backendAnalyze";
-import ViolationsFixesPanel from "./fixes/ViolationsFixesPanel";
+import AutofixPanel from "./AutofixPanel";
 
 type FixAction = {
   label: string;
@@ -46,46 +45,9 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
   async function handleAnalyzeClick() {
     setStatus("Analyzing design...");
     try {
-      // Step 1: Extract design layers from Adobe Express canvas
-      const design = await sandboxProxy.getDesign();
-      
-      // Step 2: Transform brandProfile to brandRules format
-      const brandRules = {
-        brandId: "default-brand",
-        visual: {
-          colors: ["#0057B8", "#FFFFFF", "#1A1A1A", "#FFD100"], // TODO: Get from brandProfile
-          fonts: ["Inter", "Arial", "Helvetica Neue"],
-          logo: {
-            minWidth: 100,
-            aspectRatio: 2.0,
-            padding: 20,
-          },
-        },
-        content: {
-          tone: brandProfile.tonePreference || "professional",
-          forbiddenPhrases: brandProfile.disallowedPhrases || [],
-          preferredTerms: brandProfile.preferredTerms || [],
-          locale: "en-US",
-        },
-      };
-
-      // Step 3: Call backend /analyze to get violations with fixAction
-      const backendAnalysis = await analyzeDesign(design, brandRules);
-      
-      // Step 4: Extract violations with fixAction from backend response
-      const violations = extractViolations(backendAnalysis);
-      
-      // Step 5: Merge with sandbox analysis results (for display)
-      const sandboxAnalysis = await sandboxProxy.analyzeBrandCompliance({ brandProfile });
-      
-      // Combine results: use backend score and violations, keep sandbox metadata
-      setResult({
-        ...sandboxAnalysis,
-        brandScore: backendAnalysis.result?.legacy?.brandScore || sandboxAnalysis.brandScore,
-        violations, // Backend violations with fixAction
-        backendAnalysis, // Full backend response for reference
-      });
-      
+      // Use existing sandbox analysis (don't break existing flow)
+      const analysis = await sandboxProxy.analyzeBrandCompliance({ brandProfile });
+      setResult(analysis);
       setStatus("Analysis complete");
     } catch (err) {
       console.error("Analysis error:", err);
@@ -193,30 +155,28 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
             ) : (
               <p>No compliance issues found for the selected elements.</p>
             )}
-            {/* NEW: View Fixes button (only show when score < 100%) */}
-            {(result.brandScore || 0) < 100 && (
+            {/* NEW: Autofix button (only show when score < 100% and text issues exist) */}
+            {(result.brandScore || 0) < 100 && result.textComplianceResults && result.textComplianceResults.length > 0 && (
               <div style={{ marginTop: "12px" }}>
                 <Button
                   variant="secondary"
                   onClick={() => setShowFixes(!showFixes)}
                   style={{ fontSize: "12px", padding: "6px 12px" }}
                 >
-                  {showFixes ? "Hide Suggested Fixes" : "View Suggested Fixes"}
+                  {showFixes ? "Hide Autofix" : "Show Autofix"}
                 </Button>
               </div>
             )}
           </div>
         )}
-        {/* NEW: Fixes Panel (conditionally rendered) */}
-        {showFixes && result && result.violations && (
+        {/* NEW: Autofix Panel (conditionally rendered) */}
+        {showFixes && result && result.textComplianceResults && (
           <div style={{ marginTop: "16px", borderTop: "1px solid #e0e0e0", paddingTop: "16px" }}>
-            <ViolationsFixesPanel
-              violations={result.violations}
-              onFixApplied={async () => {
-                // Re-analyze after fix is applied to update canvas and score
-                await handleAnalyzeClick();
-              }}
+            <AutofixPanel
+              textComplianceResults={result.textComplianceResults}
+              brandProfile={brandProfile}
               sandboxProxy={sandboxProxy}
+              onFixApplied={handleAnalyzeClick}
             />
           </div>
         )}
