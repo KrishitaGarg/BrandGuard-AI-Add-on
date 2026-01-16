@@ -20,6 +20,11 @@ export interface DesignLayer {
 
 export interface Design {
   layers: DesignLayer[];
+  canvas?: {
+    width?: number;
+    height?: number;
+    backgroundColor?: string;
+  };
 }
 
 export interface DocumentSandboxApi {

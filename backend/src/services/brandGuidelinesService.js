@@ -6,7 +6,7 @@
  */
 
 const {
-  getBrandGuidelines,
+  getBrandGuidelines:fetchbrandGuidelines,
   getBrandGuidelineByType
 } = require('../models/BrandGuideline');
 
@@ -17,7 +17,7 @@ const {
  */
 async function getBrandGuidelines(brandId) {
   // Fetch all guidelines from database
-  const guidelines = await getBrandGuidelines(brandId);
+  const guidelines = await fetchbrandGuidelines(brandId);
   
   // Structure the guidelines by type for easy access
   const structured = {

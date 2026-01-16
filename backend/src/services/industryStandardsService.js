@@ -6,7 +6,7 @@
  */
 
 const {
-  getIndustryStandards,
+  getIndustryStandards: fetchgetIndustryStandards,
   getIndustryStandardsByType,
   getRequiredIndustryStandards
 } = require('../models/IndustryStandard');
@@ -18,7 +18,7 @@ const {
  */
 async function getIndustryStandards(industry = 'general') {
   // Fetch from database - includes 'general' standards that apply to all industries
-  const standards = await getIndustryStandards(industry);
+  const standards = await fetchgetIndustryStandards(industry);
   
   // Structure by type for easy access
   const structured = {
