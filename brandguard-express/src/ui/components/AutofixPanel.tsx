@@ -170,7 +170,7 @@ export default function AutofixPanel({
 
   if (textIssues.length === 0) {
     return (
-      <div style={{ padding: '16px', fontSize: '13px', color: '#888', textAlign: 'center' }}>
+      <div style={{ padding: '20px 16px', fontSize: '13px', color: '#888', textAlign: 'center' }}>
         No text compliance issues found.
       </div>
     );
@@ -182,19 +182,19 @@ export default function AutofixPanel({
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
-        marginBottom: '16px',
+        marginBottom: '20px',
         paddingBottom: '12px',
-        borderBottom: '1px solid #e5e5e5'
+        borderBottom: '1px solid #e0e0e0'
       }}>
-        <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#2c2c2c' }}>
+        <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#2c2c2c', letterSpacing: '-0.01em' }}>
           Autofix Suggestions
         </h4>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           {Object.keys(undoData).length > 0 && (
             <Button
               variant="secondary"
               onClick={handleUndoAutofix}
-              style={{ fontSize: '12px', padding: '6px 12px' }}
+              style={{ fontSize: '12px', padding: '5px 11px' }}
             >
               Undo Autofix
             </Button>
@@ -203,7 +203,7 @@ export default function AutofixPanel({
             <Button
               variant="secondary"
               onClick={handleApplyAll}
-              style={{ fontSize: '12px', padding: '6px 12px' }}
+              style={{ fontSize: '12px', padding: '5px 11px' }}
             >
               Apply All ({textIssues.length})
             </Button>
@@ -211,87 +211,84 @@ export default function AutofixPanel({
         </div>
       </div>
 
-      {textIssues.map((issue) => (
-        <div
-          key={issue.layerId}
-          style={{
-            border: '1px solid #e5e5e5',
-            borderRadius: '6px',
-            padding: '14px',
-            marginBottom: '12px',
-            backgroundColor: '#fff',
-          }}
-        >
-          <div style={{ marginBottom: '12px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 500, color: '#666', marginBottom: '6px' }}>
-              Issues
-            </div>
-            <ul style={{ 
-              margin: 0, 
-              paddingLeft: '18px', 
-              fontSize: '13px',
-              color: '#333',
-              lineHeight: '1.5'
-            }}>
-              {issue.issues.map((iss: any, idx: number) => (
-                <li key={idx} style={{ marginBottom: '4px' }}>
-                  {iss.explanation || iss.type}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {expandedLayer === issue.layerId && issue.diff && (
-            <div
-              style={{
-                padding: '12px',
-                backgroundColor: '#f9f9f9',
-                border: '1px solid #e5e5e5',
-                borderRadius: '4px',
-                marginBottom: '12px',
-                fontSize: '12px',
-                lineHeight: '1.6'
-              }}
-            >
-              <div style={{ marginBottom: '8px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 500, color: '#666', marginBottom: '4px' }}>
-                  Before
-                </div>
-                <div style={{ color: '#666', fontFamily: 'monospace' }}>
-                  {issue.originalText}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: 500, color: '#666', marginBottom: '4px' }}>
-                  After
-                </div>
-                <div style={{ color: '#2c2c2c', fontFamily: 'monospace' }}>
-                  {issue.fixedText}
-                </div>
-              </div>
-            </div>
+      {textIssues.map((issue, index) => (
+        <div key={issue.layerId}>
+          {index > 0 && (
+            <div style={{ height: '1px', backgroundColor: '#e0e0e0', margin: '0 0 16px 0' }} />
           )}
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ marginBottom: '10px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 500, color: '#888', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Issues
+              </div>
+              <ul style={{ 
+                margin: 0, 
+                paddingLeft: '20px', 
+                fontSize: '13px',
+                color: '#2c2c2c',
+                lineHeight: '1.6',
+                listStyleType: 'disc'
+              }}>
+                {issue.issues.map((iss: any, idx: number) => (
+                  <li key={idx} style={{ marginBottom: '6px' }}>
+                    {iss.explanation || iss.type}
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-          <div style={{ display: 'flex', gap: '8px', paddingTop: '4px' }}>
-            {!issue.fixedText && (
-              <Button
-                variant="secondary"
-                onClick={() => handlePreviewFix(issue)}
-                style={{ fontSize: '12px', padding: '6px 12px' }}
+            {expandedLayer === issue.layerId && issue.diff && (
+              <div
+                style={{
+                  padding: '14px',
+                  backgroundColor: '#fafafa',
+                  borderRadius: '4px',
+                  marginBottom: '14px',
+                  fontSize: '12px',
+                  lineHeight: '1.65',
+                  border: '1px solid #e8e8e8'
+                }}
               >
-                Preview Fix
-              </Button>
+                <div style={{ marginBottom: '10px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 500, color: '#888', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Before
+                  </div>
+                  <div style={{ color: '#666', fontFamily: 'monospace', fontSize: '12px' }}>
+                    {issue.originalText}
+                  </div>
+                </div>
+                <div style={{ paddingTop: '10px', borderTop: '1px solid #e8e8e8' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 500, color: '#888', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    After
+                  </div>
+                  <div style={{ color: '#2c2c2c', fontFamily: 'monospace', fontSize: '12px' }}>
+                    {issue.fixedText}
+                  </div>
+                </div>
+              </div>
             )}
-            {issue.fixedText && (
-              <Button
-                variant="primary"
-                onClick={() => handleApplyFix(issue)}
-                disabled={issue.applying}
-                style={{ fontSize: '12px', padding: '6px 12px' }}
-              >
-                {issue.applying ? 'Applying...' : 'Apply Fix'}
-              </Button>
-            )}
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {!issue.fixedText && (
+                <Button
+                  variant="secondary"
+                  onClick={() => handlePreviewFix(issue)}
+                  style={{ fontSize: '12px', padding: '5px 11px' }}
+                >
+                  Preview Fix
+                </Button>
+              )}
+              {issue.fixedText && (
+                <Button
+                  variant="primary"
+                  onClick={() => handleApplyFix(issue)}
+                  disabled={issue.applying}
+                  style={{ fontSize: '12px', padding: '5px 11px' }}
+                >
+                  {issue.applying ? 'Applying...' : 'Apply Fix'}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       ))}
