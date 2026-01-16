@@ -335,6 +335,17 @@ export default function AutofixPanel({
     return (
       <div style={{ padding: '20px 16px', fontSize: '13px', color: '#888', textAlign: 'center' }}>
         No text compliance issues found.
+        {Object.keys(undoData).length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <Button
+              variant="secondary"
+              onClick={handleUndoAutofix}
+              style={{ fontSize: '12px', padding: '7px 16px', fontWeight: 600, background: '#fffbe6', color: '#b26a00', border: '1px solid #ffe082' }}
+            >
+              Undo Last Autofix
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
@@ -357,9 +368,9 @@ export default function AutofixPanel({
             <Button
               variant="secondary"
               onClick={handleUndoAutofix}
-              style={{ fontSize: '12px', padding: '5px 11px' }}
+              style={{ fontSize: '12px', padding: '7px 16px', fontWeight: 600, background: '#fffbe6', color: '#b26a00', border: '1px solid #ffe082' }}
             >
-              Undo Autofix
+              Undo Last Autofix
             </Button>
           )}
           {textIssues.length > 0 && (
