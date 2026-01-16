@@ -118,17 +118,48 @@ function start(): void {
       // -----------------
       // Issues
       // -----------------
-      const issues: string[] = [...visualIssues];
+      const issues: string[] = [];
+      const seen = new Set<string>();
+      // Add visual issues first
+      for (const v of visualIssues) {
+        if (!seen.has(v)) {
+          issues.push(v);
+          seen.add(v);
+        }
+      }
       // Add text compliance issues as explainable, labeled AI suggestions
       for (const issue of textComplianceIssues) {
-        issues.push(
-          `[AI suggestion] ${issue.type}: ${issue.explanation}`
-        );
+        const mainStr = `[AI suggestion] ${issue.type}: ${issue.explanation}`;
+        if (!seen.has(mainStr)) {
+          issues.push(mainStr);
+          seen.add(mainStr);
+        }
         if (issue.rewriteSuggestions && issue.rewriteSuggestions.length > 0) {
           for (const suggestion of issue.rewriteSuggestions) {
-            issues.push(
-              `Rewrite (${suggestion.style}): ${suggestion.text}`
-            );
+            let sugStr = '';
+            if ('style' in suggestion && 'text' in suggestion) {
+              sugStr = `Rewrite (${suggestion.style}): ${suggestion.text}`;
+            } else if ('type' in suggestion && suggestion.type === 'preferred-term') {
+              sugStr = `Preferred term: Replace '${suggestion.original}' with '${suggestion.replacement}' (${suggestion.reason})`;
+            }
+            if (sugStr && !seen.has(sugStr)) {
+              issues.push(sugStr);
+              seen.add(sugStr);
+            }
+          }
+        }
+        if (issue.suggestions && issue.suggestions.length > 0) {
+          for (const suggestion of issue.suggestions) {
+            let sugStr = '';
+            if ('style' in suggestion && 'text' in suggestion) {
+              sugStr = `Rewrite (${suggestion.style}): ${suggestion.text}`;
+            } else if ('type' in suggestion && suggestion.type === 'preferred-term') {
+              sugStr = `Preferred term: Replace '${suggestion.original}' with '${suggestion.replacement}' (${suggestion.reason})`;
+            }
+            if (sugStr && !seen.has(sugStr)) {
+              issues.push(sugStr);
+              seen.add(sugStr);
+            }
           }
         }
       }
