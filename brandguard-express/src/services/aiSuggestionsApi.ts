@@ -2,7 +2,7 @@
  * AI Suggestions API Service
  * 
  * Frontend-safe API adapter for AI creative suggestions.
- * Uses relative paths, no env vars.
+ * Uses absolute backend URL (required for Adobe Express).
  */
 
 export interface AISuggestionsRequest {
@@ -37,22 +37,27 @@ export async function generateAISuggestions(
   request: AISuggestionsRequest
 ): Promise<AISuggestionsResponse> {
   try {
-    const response = await fetch('/api/ai-suggestions/generate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
+    // Adobe Express does NOT proxy relative /api paths
+    const response = await fetch(
+      'http://localhost:3000/api/ai-suggestions/generate',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`Suggestions request failed: ${response.statusText}`);
+      throw new Error(`Suggestions request failed: ${response.status}`);
     }
 
     const data = await response.json();
     return data;
   } catch (error) {
     console.error('Error calling AI suggestions API:', error);
+
     return {
       success: false,
       data: {
@@ -61,7 +66,10 @@ export async function generateAISuggestions(
         ctaSuggestions: [],
         supportingCopySuggestions: [],
       },
-      error: error instanceof Error ? error.message : 'Suggestions unavailable',
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Suggestions unavailable',
     };
   }
 }
