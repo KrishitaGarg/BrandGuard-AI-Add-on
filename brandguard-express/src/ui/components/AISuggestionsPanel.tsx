@@ -95,13 +95,6 @@ export default function AISuggestionsPanel({
       }
       
       console.log('[AISuggestions] Applied suggestion to canvas:', text);
-      
-      // Refresh canvas data after applying
-      const updatedDesign = await sandboxProxy.getDesign();
-      setCanvasData({
-        layers: updatedDesign.layers || [],
-        canvas: updatedDesign.canvas
-      });
     } catch (error) {
       console.error('Error applying suggestion:', error);
     }
