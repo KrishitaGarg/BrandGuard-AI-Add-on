@@ -127,7 +127,7 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
               }}
               rows={2}
               style={{ width: "100%" }}
-              placeholder="alwaysAllow:Our unique phrase\nneverFlag:Legal disclaimer"
+              placeholder="alwaysAllow:Our unique phrase\neverFlag:Legal disclaimer"
             />
             <div style={{ fontSize: 11, color: '#888' }}>Override rules for specific phrases</div>
           </div>
