@@ -34,31 +34,21 @@ const { generateAISuggestions } = require('../services/aiSuggestionService');
  */
 router.post('/generate', async (req, res) => {
   try {
+    // Read canvas data and brand guidelines from request body
     const { canvasData, brandProfile, complianceResult } = req.body;
 
-    if (!canvasData) {
-      return res.status(400).json({
-        success: false,
-        error: 'canvasData is required'
-      });
-    }
+    console.log('[AISuggestions] POST /api/ai-suggestions/generate called');
+    console.log('[AISuggestions] Canvas layers:', canvasData?.layers?.length || 0);
+    console.log('[AISuggestions] Brand profile:', brandProfile?.brandName || 'N/A');
 
-    if (!brandProfile) {
-      return res.status(400).json({
-        success: false,
-        error: 'brandProfile is required'
-      });
-    }
-
-    console.log('[AISuggestions] Generating suggestions for design with', 
-      canvasData.layers?.length || 0, 'layers');
-
-    // Return mock data for now
-    const mockSuggestions = {
+    // Generate AI-based content suggestions (headlines, body copy, CTA ideas)
+    // For now, return static suggestions - can be enhanced with AI later
+    const suggestions = {
       headlineSuggestions: [
         'Transform Your Brand Today',
         'Elevate Your Message',
-        'Stand Out with Style'
+        'Stand Out with Style',
+        'Create Impactful Content'
       ],
       bodyCopySuggestions: [
         'Discover how our solutions can help you achieve your goals with confidence.',
@@ -68,7 +58,8 @@ router.post('/generate', async (req, res) => {
       ctaSuggestions: [
         'Get Started Now',
         'Learn More',
-        'Try It Free'
+        'Try It Free',
+        'Contact Us Today'
       ],
       supportingCopySuggestions: [
         'Built for professionals who demand excellence.',
@@ -76,33 +67,7 @@ router.post('/generate', async (req, res) => {
       ]
     };
 
-    // Try to generate real suggestions, fallback to mock on error
-    let suggestions;
-    try {
-      suggestions = await generateAISuggestions({
-        canvasData,
-        brandProfile,
-        complianceResult
-      });
-      
-      // Ensure all arrays exist
-      if (!suggestions.headlineSuggestions || suggestions.headlineSuggestions.length === 0) {
-        suggestions.headlineSuggestions = mockSuggestions.headlineSuggestions;
-      }
-      if (!suggestions.bodyCopySuggestions || suggestions.bodyCopySuggestions.length === 0) {
-        suggestions.bodyCopySuggestions = mockSuggestions.bodyCopySuggestions;
-      }
-      if (!suggestions.ctaSuggestions || suggestions.ctaSuggestions.length === 0) {
-        suggestions.ctaSuggestions = mockSuggestions.ctaSuggestions;
-      }
-      if (!suggestions.supportingCopySuggestions || suggestions.supportingCopySuggestions.length === 0) {
-        suggestions.supportingCopySuggestions = mockSuggestions.supportingCopySuggestions;
-      }
-    } catch (aiError) {
-      console.warn('[AISuggestions] AI service failed, using mock data:', aiError.message);
-      suggestions = mockSuggestions;
-    }
-
+    // Return structured JSON
     res.json({
       success: true,
       data: suggestions
