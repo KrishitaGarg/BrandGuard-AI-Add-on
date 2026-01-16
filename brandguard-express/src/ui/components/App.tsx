@@ -11,6 +11,7 @@ import { defaultBrandProfile, validateBrandProfile, BrandProfile } from "../../b
 import type { DocumentSandboxApi } from "../../models/DocumentSandboxApi";
 import type { AddOnSDKAPI } from "https://new.express.adobe.com/static/add-on-sdk/sdk.js";
 import ScorePanel from "./ScorePanel";
+import FixesPanel from "./fixes/FixesPanel";
 
 type FixAction = {
   label: string;
@@ -28,6 +29,9 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
   const [brandProfile, setBrandProfile] = useState<BrandProfile>(defaultBrandProfile);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  // NEW: Fixes panel state
+  const [showFixes, setShowFixes] = useState(false);
+  const [designId] = useState<string>(() => `design-${Date.now()}`); // Generate unique design ID
   // Autofix and preview state removed for Phase 1 compliance-only UI
 
 
@@ -150,6 +154,52 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
             ) : (
               <p>No compliance issues found for the selected elements.</p>
             )}
+            {/* NEW: View Fixes button (only show when score < 100%) */}
+            {(result.brandScore || 0) < 100 && (
+              <div style={{ marginTop: "12px" }}>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowFixes(!showFixes)}
+                  style={{ fontSize: "12px", padding: "6px 12px" }}
+                >
+                  {showFixes ? "Hide Suggested Fixes" : "View Suggested Fixes"}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+        {/* NEW: Fixes Panel (conditionally rendered) */}
+        {showFixes && result && (
+          <div style={{ marginTop: "16px", borderTop: "1px solid #e0e0e0", paddingTop: "16px" }}>
+            <FixesPanel
+              designId={designId}
+              brandId="default-brand" // TODO: Get from brandProfile or user selection
+              industry="general" // TODO: Get from brandProfile or user selection
+              complianceResults={{
+                violations: [], // TODO: Transform result.issues to violations format
+                score: result.brandScore || 0,
+                design: { layers: [] } // TODO: Get from sandbox
+              }}
+              design={{ layers: [] }} // TODO: Get from sandbox
+              brandRules={{
+                brandId: "default-brand",
+                visual: {
+                  colors: [], // TODO: Extract from brandProfile if available
+                  fonts: [],
+                  logo: {}
+                },
+                content: {
+                  tone: brandProfile.tonePreference || "professional",
+                  forbiddenPhrases: brandProfile.disallowedPhrases || [],
+                  locale: "en-US"
+                }
+              }}
+              onFixApplied={async () => {
+                // Re-analyze after fix is applied
+                await handleAnalyzeClick();
+              }}
+              sandboxProxy={sandboxProxy}
+            />
           </div>
         )}
       </div>
