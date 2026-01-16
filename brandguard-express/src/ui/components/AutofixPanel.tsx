@@ -96,10 +96,11 @@ export default function AutofixPanel({
     );
 
     try {
-      // Apply fix to canvas
+      // Apply fix to canvas - pass originalText for reliable layer matching
       await sandboxProxy.applyTextFix({
         layerId: issue.layerId,
         fixedText: issue.fixedText,
+        originalText: issue.originalText,
       });
 
       // Re-analyze to update score

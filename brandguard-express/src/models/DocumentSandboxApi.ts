@@ -32,5 +32,5 @@ export interface DocumentSandboxApi {
   applySuggestion: () => Promise<{ status: string; message: string }>;
   getDesign: () => Promise<Design>;
   setDesign: (design: Design) => Promise<void>;
-  applyTextFix: (params: { layerId: string; fixedText: string }) => Promise<{ status: string; message: string }>;
+  applyTextFix: (params: { layerId: string; fixedText: string; originalText?: string }) => Promise<{ status: string; message: string }>;
 }
