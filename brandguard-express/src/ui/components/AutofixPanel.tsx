@@ -132,21 +132,30 @@ export default function AutofixPanel({
 
   if (textIssues.length === 0) {
     return (
-      <div style={{ padding: '12px', fontSize: '12px', color: '#666' }}>
+      <div style={{ padding: '16px', fontSize: '13px', color: '#888', textAlign: 'center' }}>
         No text compliance issues found.
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
-        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>Autofix Suggestions</h4>
+    <div style={{ padding: '16px' }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: '16px',
+        paddingBottom: '12px',
+        borderBottom: '1px solid #e5e5e5'
+      }}>
+        <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#2c2c2c' }}>
+          Autofix Suggestions
+        </h4>
         {textIssues.length > 0 && (
           <Button
             variant="secondary"
             onClick={handleApplyAll}
-            style={{ fontSize: '11px', padding: '4px 8px' }}
+            style={{ fontSize: '12px', padding: '6px 12px' }}
           >
             Apply All ({textIssues.length})
           </Button>
@@ -157,18 +166,28 @@ export default function AutofixPanel({
         <div
           key={issue.layerId}
           style={{
-            border: '1px solid #e0e0e0',
-            borderRadius: '4px',
-            padding: '12px',
-            marginBottom: '8px',
-            backgroundColor: '#fafafa',
+            border: '1px solid #e5e5e5',
+            borderRadius: '6px',
+            padding: '14px',
+            marginBottom: '12px',
+            backgroundColor: '#fff',
           }}
         >
-          <div style={{ marginBottom: '8px' }}>
-            <strong style={{ fontSize: '12px' }}>Issues:</strong>
-            <ul style={{ margin: '4px 0', paddingLeft: '20px', fontSize: '11px' }}>
+          <div style={{ marginBottom: '12px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 500, color: '#666', marginBottom: '6px' }}>
+              Issues
+            </div>
+            <ul style={{ 
+              margin: 0, 
+              paddingLeft: '18px', 
+              fontSize: '13px',
+              color: '#333',
+              lineHeight: '1.5'
+            }}>
               {issue.issues.map((iss: any, idx: number) => (
-                <li key={idx}>{iss.explanation || iss.type}</li>
+                <li key={idx} style={{ marginBottom: '4px' }}>
+                  {iss.explanation || iss.type}
+                </li>
               ))}
             </ul>
           </div>
@@ -176,33 +195,40 @@ export default function AutofixPanel({
           {expandedLayer === issue.layerId && issue.diff && (
             <div
               style={{
-                padding: '8px',
-                backgroundColor: '#fff',
-                border: '1px solid #ddd',
+                padding: '12px',
+                backgroundColor: '#f9f9f9',
+                border: '1px solid #e5e5e5',
                 borderRadius: '4px',
-                marginBottom: '8px',
-                fontSize: '11px',
+                marginBottom: '12px',
+                fontSize: '12px',
+                lineHeight: '1.6'
               }}
             >
-              <div style={{ marginBottom: '4px' }}>
-                <strong>Before:</strong>
-                <div style={{ color: '#d32f2f', textDecoration: 'line-through' }}>
+              <div style={{ marginBottom: '8px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 500, color: '#666', marginBottom: '4px' }}>
+                  Before
+                </div>
+                <div style={{ color: '#666', fontFamily: 'monospace' }}>
                   {issue.originalText}
                 </div>
               </div>
               <div>
-                <strong>After:</strong>
-                <div style={{ color: '#2e7d32' }}>{issue.fixedText}</div>
+                <div style={{ fontSize: '11px', fontWeight: 500, color: '#666', marginBottom: '4px' }}>
+                  After
+                </div>
+                <div style={{ color: '#2c2c2c', fontFamily: 'monospace' }}>
+                  {issue.fixedText}
+                </div>
               </div>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', paddingTop: '4px' }}>
             {!issue.fixedText && (
               <Button
                 variant="secondary"
                 onClick={() => handlePreviewFix(issue)}
-                style={{ fontSize: '11px', padding: '4px 8px' }}
+                style={{ fontSize: '12px', padding: '6px 12px' }}
               >
                 Preview Fix
               </Button>
@@ -212,7 +238,7 @@ export default function AutofixPanel({
                 variant="primary"
                 onClick={() => handleApplyFix(issue)}
                 disabled={issue.applying}
-                style={{ fontSize: '11px', padding: '4px 8px' }}
+                style={{ fontSize: '12px', padding: '6px 12px' }}
               >
                 {issue.applying ? 'Applying...' : 'Apply Fix'}
               </Button>
