@@ -174,6 +174,7 @@ app.listen(PORT, () => {
       console.log(`   POST /api/fixes/apply-all - Apply multiple fixes (NEW)`);
       console.log(`   GET  /api/fixes/:designId - Get fixes for design (NEW)`);
       console.log(`   POST /api/ai-suggestions/generate - Generate AI creative suggestions (NEW)`);
+      console.log(`   POST /ai-suggestions - AI suggestions endpoint (NEW)`);
       console.log(`\n   Frontend (Adobe Express Add-on) located at:`);
   console.log(`   /my-adobe-addon/`);
   console.log(`   Should connect to: http://localhost:${PORT}\n`);
