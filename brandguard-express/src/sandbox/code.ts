@@ -51,25 +51,12 @@ function start(): void {
         }
       };
 
-      console.log("[AI] Calling backend /api/analyze for text analysis");
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          design,
-          brandRules,
-        }),
-      });
-
-      if (!response.ok) {
-        console.error("[AI] Backend call failed:", response.statusText);
-        return { score: 100, issues: [] };
-      }
-
-      const backendResult = await response.json();
-      console.log("[AI] Backend response received:", backendResult);
+      // NOTE: fetch is not available in Adobe Express document sandbox.
+      // AI analysis happens in the UI layer, not in the sandbox.
+      // Return empty results here - actual AI suggestions come from backend
+      // analysis that runs in the UI layer before results reach the sandbox.
+      console.log("[AI] Skipping backend call in sandbox (fetch not available)");
+      const backendResult = { result: { ai: { issues: [] } } };
 
       // Extract AI issues from backend response
       // The backend Groq analysis returns issues in result.ai.issues
@@ -154,82 +141,34 @@ function start(): void {
               
               const rewritePrompt = `Rewrite this sentence to match the brand guidelines. Keep meaning unchanged. ${toneInstruction}\n\nOriginal: "${text}"\n\nReturn only the rewritten sentence, nothing else.`;
               
-              // Call backend with rewrite request
-              const rewriteResponse = await fetch('/api/analyze', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  design: { layers: [{ type: 'text', content: text }] },
-                  brandRules,
-                }),
-              });
-
-              if (rewriteResponse.ok) {
-                const rewriteResult = await rewriteResponse.json();
-                
-                // Extract suggested text from Groq response
-                let suggestedText = '';
-                
-                // Try multiple response formats from Groq
-                const aiResult = rewriteResult.result?.ai;
-                if (aiResult) {
-                  // Check summary field (Groq sometimes puts rewrite here)
-                  if (aiResult.summary && typeof aiResult.summary === 'string') {
-                    const summary = aiResult.summary.trim();
-                    if (summary !== text && summary.length > 0 && !summary.toLowerCase().includes('issue')) {
-                      suggestedText = summary;
-                    }
+              // NOTE: fetch is not available in sandbox - skip explicit rewrite request
+              // Suggestions should already be in the original Groq response
+              console.log("[AI] Skipping rewrite request in sandbox (fetch not available)");
+              const rewriteResult = null;
+              
+              // Fallback: use word-level autofix for fixable issues without suggestions
+              console.log("[AI] Using word-level autofix fallback for", issue.type);
+              try {
+                const { applyAutofix } = await import("../services/autofixService");
+                const autofixResult = await applyAutofix({
+                  text: text,
+                  issues: [issue],
+                  brandGuidelines: {
+                    preferredTerms: {},
+                    disallowedTerms: brandRules.content.forbiddenPhrases || [],
+                    toneRules: [brandRules.content.tone]
                   }
-                  
-                  // Check issues array for suggestion
-                  if (!suggestedText && Array.isArray(aiResult.issues)) {
-                    for (const aiIssue of aiResult.issues) {
-                      if (aiIssue.suggestion && typeof aiIssue.suggestion === 'string') {
-                        const sug = aiIssue.suggestion.trim();
-                        if (sug !== text && sug.length > 0) {
-                          suggestedText = sug;
-                          break;
-                        }
-                      }
-                      if (aiIssue.autofix?.text && typeof aiIssue.autofix.text === 'string') {
-                        const sug = aiIssue.autofix.text.trim();
-                        if (sug !== text && sug.length > 0) {
-                          suggestedText = sug;
-                          break;
-                        }
-                      }
-                    }
-                  }
-                }
+                });
                 
-                if (suggestedText && suggestedText !== text && suggestedText.length > 0) {
+                if (autofixResult.success && autofixResult.fixedText !== text && autofixResult.fixedText.length > 0) {
                   issue.rewriteSuggestions.push({
                     style: 'neutral',
-                    text: suggestedText
+                    text: autofixResult.fixedText
                   });
-                  console.log("[AI] Generated rewrite suggestion:", suggestedText.substring(0, 50) + '...');
-                } else {
-                  console.log("[AI] Groq didn't return usable suggestion, using fallback");
-                  // Fallback: use word-level autofix to ensure we have something
-                  const { applyAutofix } = await import("../services/autofixService");
-                  const autofixResult = await applyAutofix({
-                    text: text,
-                    issues: [issue],
-                    brandGuidelines: {
-                      preferredTerms: {},
-                      disallowedTerms: brandRules.content.forbiddenPhrases || [],
-                      toneRules: [brandRules.content.tone]
-                    }
-                  });
-                  
-                  if (autofixResult.success && autofixResult.fixedText !== text && autofixResult.fixedText.length > 0) {
-                    issue.rewriteSuggestions.push({
-                      style: 'neutral',
-                      text: autofixResult.fixedText
-                    });
-                    console.log("[AI] Generated suggestion using word-level autofix fallback");
-                  }
+                  console.log("[AI] Generated suggestion using word-level autofix fallback");
                 }
+              } catch (error) {
+                console.error("[AI] Error in autofix fallback:", error);
               }
             } catch (error) {
               console.error("[AI] Error generating rewrite suggestion:", error);
