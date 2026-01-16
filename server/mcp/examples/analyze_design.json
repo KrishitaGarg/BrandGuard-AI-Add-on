@@ -1,0 +1,53 @@
+{
+  "tool": "analyze_design",
+  "input": {
+    "design": {
+      "designId": "example-design-1",
+      "canvas": {
+        "width": 1920,
+        "height": 1080
+      },
+      "layers": [
+        {
+          "id": "layer-1",
+          "type": "text",
+          "content": "The Best Guaranteed Design Tool Ever!",
+          "fill": "#FF0000",
+          "fontFamily": "Comic Sans MS",
+          "fontWeight": 400,
+          "width": 300,
+          "height": 50,
+          "x": 50,
+          "y": 50
+        },
+        {
+          "id": "layer-2",
+          "type": "logo",
+          "fill": "#0033A0",
+          "width": 80,
+          "height": 80,
+          "x": 20,
+          "y": 20
+        }
+      ]
+    },
+    "brandRules": {
+      "brandId": "acme-corp",
+      "visual": {
+        "colors": ["#0033A0", "#FFFFFF", "#000000", "#F2F2F2"],
+        "fonts": ["Inter", "Roboto", "Helvetica"],
+        "logo": {
+          "minWidth": 120,
+          "aspectRatio": 1,
+          "padding": 20
+        }
+      },
+      "content": {
+        "tone": "Formal and Trustworthy",
+        "forbiddenPhrases": ["guaranteed", "risk-free", "best in the world"],
+        "locale": "en-US"
+      }
+    }
+  }
+}
+
