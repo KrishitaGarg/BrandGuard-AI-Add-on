@@ -122,6 +122,42 @@ app.use("/api/fixes", fixSuggestionsRoutes);
  */
 app.use("/api/ai-suggestions", aiSuggestionsRoutes);
 
+// Direct endpoint for /ai-suggestions (backwards compatibility)
+app.post("/ai-suggestions", async (req, res) => {
+  try {
+    const { canvasData, brandProfile, complianceResult } = req.body;
+    
+    // Return mock JSON response
+    res.json({
+      success: true,
+      data: {
+        headlineSuggestions: [
+          'Transform Your Brand Today',
+          'Elevate Your Message',
+          'Stand Out with Style'
+        ],
+        bodyCopySuggestions: [
+          'Discover how our solutions can help you achieve your goals with confidence.',
+          'Join thousands of satisfied customers who trust our innovative approach.'
+        ],
+        ctaSuggestions: [
+          'Get Started Now',
+          'Learn More',
+          'Try It Free'
+        ],
+        supportingCopySuggestions: [
+          'Built for professionals who demand excellence.'
+        ]
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate suggestions'
+    });
+  }
+});
+
 /**
  * Start server
  */
