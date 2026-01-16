@@ -22,6 +22,7 @@ const { checkBrandRoute } = require("./routes/checkBrand");
 const { parseGuidelinesRoute } = require("./routes/parseGuidelines");
 const applyFixRoute = require("./routes/applyFix");
 const fixSuggestionsRoutes = require("./routes/fixSuggestions");
+const aiSuggestionsRoutes = require("./routes/aiSuggestions");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -116,6 +117,48 @@ app.post("/apply-fix", applyFixRoute);
 app.use("/api/fixes", fixSuggestionsRoutes);
 
 /**
+ * NEW: AI creative suggestions API routes
+ * Separate from compliance - additive recommendations
+ */
+app.use("/api/ai-suggestions", aiSuggestionsRoutes);
+
+// Direct endpoint for /ai-suggestions (backwards compatibility)
+app.post("/ai-suggestions", async (req, res) => {
+  try {
+    const { canvasData, brandProfile, complianceResult } = req.body;
+    
+    // Return mock JSON response
+    res.json({
+      success: true,
+      data: {
+        headlineSuggestions: [
+          'Transform Your Brand Today',
+          'Elevate Your Message',
+          'Stand Out with Style'
+        ],
+        bodyCopySuggestions: [
+          'Discover how our solutions can help you achieve your goals with confidence.',
+          'Join thousands of satisfied customers who trust our innovative approach.'
+        ],
+        ctaSuggestions: [
+          'Get Started Now',
+          'Learn More',
+          'Try It Free'
+        ],
+        supportingCopySuggestions: [
+          'Built for professionals who demand excellence.'
+        ]
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate suggestions'
+    });
+  }
+});
+
+/**
  * Start server
  */
 app.listen(PORT, () => {
@@ -128,9 +171,11 @@ app.listen(PORT, () => {
   console.log(`   POST /parse-brand-guidelines - Parse brand guidelines from text`);
   console.log(`   POST /api/fixes/generate - Generate fix suggestions (NEW)`);
   console.log(`   POST /api/fixes/apply - Apply a fix (NEW)`);
-  console.log(`   POST /api/fixes/apply-all - Apply multiple fixes (NEW)`);
-  console.log(`   GET  /api/fixes/:designId - Get fixes for design (NEW)`);
-  console.log(`\n   Frontend (Adobe Express Add-on) located at:`);
+      console.log(`   POST /api/fixes/apply-all - Apply multiple fixes (NEW)`);
+      console.log(`   GET  /api/fixes/:designId - Get fixes for design (NEW)`);
+      console.log(`   POST /api/ai-suggestions/generate - Generate AI creative suggestions (NEW)`);
+      console.log(`   POST /ai-suggestions - AI suggestions endpoint (NEW)`);
+      console.log(`\n   Frontend (Adobe Express Add-on) located at:`);
   console.log(`   /my-adobe-addon/`);
   console.log(`   Should connect to: http://localhost:${PORT}\n`);
 });
