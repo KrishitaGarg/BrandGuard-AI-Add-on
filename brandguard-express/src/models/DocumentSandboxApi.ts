@@ -23,7 +23,8 @@ export interface Design {
 }
 
 export interface DocumentSandboxApi {
-  analyzeBrandCompliance: () => Promise<BrandComplianceResult>;
+  analyzeBrandCompliance: (params: { brandProfile: import("../brandProfile").BrandProfile }) => Promise<BrandComplianceResult>;
   applySuggestion: () => Promise<{ status: string; message: string }>;
   getDesign: () => Promise<Design>;
+  setDesign: (design: Design) => Promise<void>;
 }

@@ -5,9 +5,11 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@swc-react/button";
 import { Theme } from "@swc-react/theme";
 import "./App.css";
-import { AddOnSDKAPI } from "https://new.express.adobe.com/static/add-on-sdk/sdk.js";
-import { DocumentSandboxApi } from "../../models/DocumentSandboxApi";
-import ViolationCard from "./ViolationCard";
+
+
+import { defaultBrandProfile, validateBrandProfile, BrandProfile } from "../../brandProfile";
+import type { DocumentSandboxApi } from "../../models/DocumentSandboxApi";
+import type { AddOnSDKAPI } from "https://new.express.adobe.com/static/add-on-sdk/sdk.js";
 import ScorePanel from "./ScorePanel";
 
 type FixAction = {
@@ -17,136 +19,32 @@ type FixAction = {
   apply: () => Promise<void>;
 };
 
-type AIInsight = {
-  summary: string;
-  strengths: string[];
-  issues: {
-    id: string;
-    type: "text" | "visual" | "layout";
-    explanation: string;
-    severity: "low" | "medium" | "high";
-    suggestion: string;
-    autofix?: FixAction;
-  }[];
-};
-
-const MCP_ENDPOINT = "http://localhost:3000";
-const ENABLE_MCP = true;
+// ...existing code...
 
 const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxProxy: DocumentSandboxApi }) => {
   const [result, setResult] = useState<any>(null);
   const [status, setStatus] = useState("Idle");
-  const [brandGuidelines, setBrandGuidelines] = useState("");
-  const [brandConfig, setBrandConfig] = useState<any>(null);
+  // Structured brand profile state
+  const [brandProfile, setBrandProfile] = useState<BrandProfile>(defaultBrandProfile);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
-  const [aiInsight, setAiInsight] = useState<AIInsight | null>(null);
-  const [fixing, setFixing] = useState(false);
-  const [fixError, setFixError] = useState<string | null>(null);
-  const [previewFix, setPreviewFix] = useState<any>(null);
-  const [appliedFixes, setAppliedFixes] = useState<string[]>([]); // store applied autofix ids
-
-  useEffect(() => {
-    if (aiInsight !== null) {
-      console.log("[DEBUG] Rendering aiInsight:", aiInsight);
-    }
-  }, [aiInsight]);
-
-  async function handleImportGuidelines() {
-    if (!brandGuidelines.trim()) {
-      setStatus("Please paste brand guidelines first.");
-      return;
-    }
-    setImporting(true);
-    setImportError(null);
-    setStatus("Importing brand guidelines...");
-    try {
-      setBrandConfig({ imported: true });
-      setStatus("Brand guidelines imported");
-    } catch {
-      setImportError("Failed to import guidelines.");
-      setStatus("Idle");
-    } finally {
-      setImporting(false);
-    }
-  }
+  // Autofix and preview state removed for Phase 1 compliance-only UI
 
 
-  // Preview fix (shows what will change)
-  function handlePreviewFix(fix: any) {
-    setPreviewFix(fix);
-  }
 
-  // Apply fix (simulate, in real use call backend/sandbox)
-  async function handleApplyFix(issueId: string, fix: any) {
-    setFixing(true);
-    setFixError(null);
-    setStatus("Applying fix...");
-    try {
-      // Here, you would call sandboxProxy.applySuggestion or a new method with fix details
-      // For now, just mark as applied
-      setAppliedFixes((prev) => [...prev, issueId]);
-      setPreviewFix(null);
-      setStatus("Fix applied");
-    } catch (err) {
-      setFixError("Failed to apply fix.");
-      setStatus("Idle");
-    } finally {
-      setFixing(false);
-    }
-  }
 
-  // Undo fix (remove from appliedFixes)
-  function handleUndoFix(issueId: string) {
-    setAppliedFixes((prev) => prev.filter((id) => id !== issueId));
-    setStatus("Fix undone");
+  // UI handler for updating brand profile fields
+  function handleProfileChange<K extends keyof BrandProfile>(key: K, value: BrandProfile[K]) {
+    setBrandProfile((prev) => ({ ...prev, [key]: value }));
   }
 
   async function handleAnalyzeClick() {
-    if (!brandConfig) {
-      setStatus("Please import brand guidelines first.");
-      return;
-    }
     setStatus("Analyzing design...");
     try {
-      const analysis = await sandboxProxy.analyzeBrandCompliance();
+      // Pass brandProfile as payload to sandbox
+      const analysis = await sandboxProxy.analyzeBrandCompliance({ brandProfile });
       setResult(analysis);
-      if (ENABLE_MCP) {
-        setStatus("Fetching AI insights...");
-        try {
-          // Get the actual design object
-          const design = await sandboxProxy.getDesign();
-          const response = await fetch(`${MCP_ENDPOINT}/analyze`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ design, brandRules: brandConfig }),
-          });
-          if (!response.ok) {
-            throw new Error("MCP request failed");
-          }
-          const data = await response.json();
-          if (data?.result?.ai) {
-            setAiInsight(data.result.ai);
-          } else {
-            // Show local analysis summary if no AI insight
-            setAiInsight({
-              summary: analysis.status + (analysis.issues?.length ? ": " + analysis.issues.join(", ") : ""),
-              strengths: [],
-              issues: [],
-            });
-          }
-          setStatus("Analysis + AI complete");
-        } catch (mcpError) {
-          setAiInsight({
-            summary: "AI service unavailable. Showing local analysis only.",
-            strengths: [],
-            issues: [],
-          });
-          setStatus("Local analysis complete");
-        }
-      } else {
-        setStatus("Local analysis complete");
-      }
+      setStatus("Analysis complete");
     } catch (err) {
       setStatus("Analysis failed");
     }
@@ -155,32 +53,78 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
   return (
     <Theme system="express" scale="medium" color="light">
       <div className="container">
-        {/* Brand Guidelines */}
+        {/* Structured Brand Profile Editor */}
         <div style={{ marginBottom: 16 }}>
-          <label style={{ fontWeight: 600 }}>
-            Paste Brand Guidelines:
-          </label>
-          <textarea
-            value={brandGuidelines}
-            onChange={(e) => setBrandGuidelines(e.target.value)}
-            rows={4}
-            style={{ width: "100%", marginTop: 8 }}
-          />
-          <Button
-            variant="secondary"
-            style={{ marginTop: 8 }}
-            onClick={handleImportGuidelines}
-          >
-            {importing ? "Importing..." : "Update Brand Rules"}
-          </Button>
-          {importError && (
-            <p style={{ color: "red", fontSize: 12 }}>{importError}</p>
-          )}
-          {brandConfig && (
-            <p style={{ color: "green", fontSize: 12 }}>
-              Brand rules loaded.
-            </p>
-          )}
+          <label style={{ fontWeight: 600 }}>Brand Profile</label>
+          <div style={{ marginTop: 8, marginBottom: 8 }}>
+            <label>Tone Preference: </label>
+            <select
+              value={brandProfile.tonePreference}
+              onChange={e => handleProfileChange("tonePreference", e.target.value as any)}
+            >
+              <option value="formal">Formal</option>
+              <option value="neutral">Neutral</option>
+              <option value="friendly">Friendly</option>
+            </select>
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <label>Claims Strictness: </label>
+            <select
+              value={brandProfile.claimsStrictness}
+              onChange={e => handleProfileChange("claimsStrictness", e.target.value as any)}
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <label>Disallowed Phrases: </label>
+            <input
+              type="text"
+              value={brandProfile.disallowedPhrases.join(", ")}
+              onChange={e => handleProfileChange("disallowedPhrases", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+              style={{ width: "100%" }}
+              placeholder="e.g. free, best ever, 100% guaranteed"
+            />
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <label>Preferred Terms: </label>
+            <input
+              type="text"
+              value={brandProfile.preferredTerms.join(", ")}
+              onChange={e => handleProfileChange("preferredTerms", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+              style={{ width: "100%" }}
+              placeholder="e.g. innovative, trusted, sustainable"
+            />
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <label>Brand Description: </label>
+            <textarea
+              value={brandProfile.brandDescription}
+              onChange={e => handleProfileChange("brandDescription", e.target.value)}
+              rows={2}
+              style={{ width: "100%" }}
+              placeholder="Describe your brand for AI context (optional)"
+            />
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <label>Brand Memory (always allow / never flag):</label>
+            <textarea
+              value={brandProfile.memory?.map(m => `${m.action}:${m.phrase}`).join("\n")}
+              onChange={e => {
+                const lines = e.target.value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                const memory = lines.map(line => {
+                  const [action, ...rest] = line.split(":");
+                  return action && rest.length > 0 ? { action: action.trim() as any, phrase: rest.join(":").trim() } : null;
+                }).filter(Boolean) as any;
+                handleProfileChange("memory", memory);
+              }}
+              rows={2}
+              style={{ width: "100%" }}
+              placeholder="alwaysAllow:Our unique phrase\nneverFlag:Legal disclaimer"
+            />
+          </div>
         </div>
         <Button
           variant="primary"
@@ -193,13 +137,8 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
         </p>
         {result && (
           <div style={{ marginTop: "14px", fontSize: "12px" }}>
-            <p>
-              <strong>Brand Score:</strong> {result.brandScore}/100
-            </p>
-            <p>
-              Layers — Text: {result.textLayers}, Shapes: {result.shapeLayers}, Images: {result.imageLayers}
-            </p>
-            {result.issues.length > 0 && (
+            <ScorePanel score={result.brandScore || 0} />
+            {result.issues && result.issues.length > 0 ? (
               <>
                 <p><strong>Issues:</strong></p>
                 <ul>
@@ -208,72 +147,8 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
                   ))}
                 </ul>
               </>
-            )}
-            {result.suggestions && result.suggestions.length > 0 && (
-              <>
-                <p><strong>Suggestions:</strong></p>
-                <ul>
-                  {result.suggestions.map((s: string, i: number) => (
-                    <li key={i}>{s}</li>
-                  ))}
-                </ul>
-              </>
-            )}
-            {/* Improved AI Insight/Summary logic */}
-            {aiInsight && (
-              <div style={{ marginTop: "10px", background: "#f4f4f4", padding: 10, borderRadius: 6 }}>
-                <strong>AI Analysis</strong>
-                <ScorePanel
-                  score={result?.brandScore || 0}
-                  strengths={aiInsight.strengths}
-                  summary={aiInsight.summary}
-                />
-                {aiInsight.issues && aiInsight.issues.length > 0 && (
-                  <div style={{ margin: "8px 0" }}>
-                    <strong>Issues:</strong>
-                    {aiInsight.issues.map((issue, i) => (
-                      <div style={{ position: "relative" }}>
-                        <ViolationCard
-                          key={issue.id || i}
-                          type={issue.type}
-                          severity={issue.severity}
-                          explanation={issue.explanation}
-                          suggestion={issue.suggestion}
-                          autofixLabel={issue.autofix?.label}
-                          onAutofix={issue.autofix && !appliedFixes.includes(issue.id)
-                            ? () => handleApplyFix(issue.id, issue.autofix)
-                            : undefined}
-                        />
-                        {appliedFixes.includes(issue.id) && (
-                          <Button variant="secondary" style={{ marginLeft: 8, position: "absolute", top: 8, right: 8 }} onClick={() => handleUndoFix(issue.id)}>
-                            Undo
-                          </Button>
-                        )}
-                        {issue.autofix && !appliedFixes.includes(issue.id) && (
-                          <Button variant="secondary" style={{ marginLeft: 8, position: "absolute", top: 8, right: 80 }} onClick={() => handlePreviewFix(issue.autofix)}>
-                            Preview
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {/* Preview Modal/Panel */}
-                {previewFix && (
-                  <div style={{ background: "#fffbe6", border: "1px solid #ffe58f", padding: 16, borderRadius: 8, marginTop: 12 }}>
-                    <strong>Preview Fix:</strong>
-                    <div><strong>Property:</strong> {previewFix.change.property}</div>
-                    <div><strong>Before:</strong> {String(previewFix.change.before)}</div>
-                    <div><strong>After:</strong> {String(previewFix.change.after)}</div>
-                    <Button variant="primary" style={{ marginTop: 8 }} onClick={() => handleApplyFix(previewFix.id, previewFix)}>
-                      Apply Fix
-                    </Button>
-                    <Button variant="secondary" style={{ marginLeft: 8 }} onClick={() => setPreviewFix(null)}>
-                      Cancel
-                    </Button>
-                  </div>
-                )}
-              </div>
+            ) : (
+              <p>No compliance issues found for the selected elements.</p>
             )}
           </div>
         )}

@@ -20,6 +20,7 @@ const cors = require("cors");
 const { analyzeDesignRoute } = require("./routes/analyze");
 const { checkBrandRoute } = require("./routes/checkBrand");
 const { parseGuidelinesRoute } = require("./routes/parseGuidelines");
+const applyFixRoute = require("./routes/applyFix");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -90,6 +91,22 @@ app.post("/check-brand", checkBrandRoute);
  * Returns: Parsed brand guidelines
  */
 app.post("/parse-brand-guidelines", parseGuidelinesRoute);
+
+/**
+ * Apply autofix to a design
+ * 
+ * POST /apply-fix
+ * 
+ * Request body:
+ * {
+ *   "designId": "string",
+ *   "issueId": "string",
+ *   "fix": { ... }
+ * }
+ * 
+ * Returns: Success and applied fix
+ */
+app.post("/apply-fix", applyFixRoute);
 
 /**
  * Start server
