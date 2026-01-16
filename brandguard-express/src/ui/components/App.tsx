@@ -12,6 +12,7 @@ import type { DocumentSandboxApi } from "../../models/DocumentSandboxApi";
 import type { AddOnSDKAPI } from "https://new.express.adobe.com/static/add-on-sdk/sdk.js";
 import ScorePanel from "./ScorePanel";
 import AutofixPanel from "./AutofixPanel";
+import AISuggestionsPanel from "./AISuggestionsPanel";
 
 type FixAction = {
   label: string;
@@ -32,6 +33,9 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
   // NEW: Fixes panel state
   const [showFixes, setShowFixes] = useState(false);
   const [designId] = useState<string>(() => `design-${Date.now()}`); // Generate unique design ID
+  // NEW: AI Suggestions panel state
+  const [showAISuggestions, setShowAISuggestions] = useState(false);
+  const [canvasData, setCanvasData] = useState<{ layers: any[]; canvas?: any } | null>(null);
   // Autofix and preview state removed for Phase 1 compliance-only UI
 
 
@@ -49,6 +53,17 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
       const analysis = await sandboxProxy.analyzeBrandCompliance({ brandProfile });
       setResult(analysis);
       setStatus("Analysis complete");
+      
+      // Fetch canvas data for AI suggestions (non-blocking)
+      try {
+        const design = await sandboxProxy.getDesign();
+        setCanvasData({
+          layers: design.layers || [],
+          canvas: design.canvas
+        });
+      } catch (err) {
+        console.warn("Could not fetch canvas data for suggestions:", err);
+      }
     } catch (err) {
       console.error("Analysis error:", err);
       setStatus("Analysis failed");
@@ -296,6 +311,29 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
               sandboxProxy={sandboxProxy}
               onFixApplied={handleAnalyzeClick}
             />
+          </div>
+        )}
+        
+        {/* NEW: AI Suggestions Panel (separate from compliance) */}
+        {result && (
+          <div style={{ marginTop: "16px", borderTop: "1px solid #e0e0e0", paddingTop: "16px" }}>
+            <div style={{ marginBottom: "12px" }}>
+              <Button
+                variant="secondary"
+                onClick={() => setShowAISuggestions(!showAISuggestions)}
+                style={{ fontSize: "12px", padding: "6px 12px" }}
+              >
+                {showAISuggestions ? "Hide" : "Show"} AI Suggestions
+              </Button>
+            </div>
+            {showAISuggestions && canvasData && (
+              <AISuggestionsPanel
+                canvasData={canvasData}
+                brandProfile={brandProfile}
+                complianceResult={result}
+                sandboxProxy={sandboxProxy}
+              />
+            )}
           </div>
         )}
       </div>
