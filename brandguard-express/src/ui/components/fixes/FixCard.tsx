@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { useFixes, Fix } from '../../contexts/FixesContext';
-import { executeFixCommands } from '../../../services/adobeExpressIntegration';
+import { applyFixAction } from '../../../services/fixApplicator';
 import type { DocumentSandboxApi } from '../../../models/DocumentSandboxApi';
 import './FixCard.css';
 
@@ -40,14 +40,21 @@ export default function FixCard({
     }
 
     try {
-      // Get commands from backend
-      const commands = await applyFix(fix.id, designId);
-
-      if (commands && commands.length > 0) {
-        // Execute commands on Adobe Express canvas
-        await executeFixCommands(commands, sandboxProxy);
-        onFixApplied?.();
+      // Apply fix directly using fixAction from backend
+      const fixAction = (fix as any).fixAction;
+      
+      if (!fixAction) {
+        console.error('No fixAction provided for this fix');
+        return;
       }
+
+      // Apply fix action to Adobe Express canvas
+      await applyFixAction(fixAction, sandboxProxy);
+      
+      // Mark as applied in context
+      await applyFix(fix.id, designId);
+      
+      onFixApplied?.();
     } catch (error) {
       console.error('Error applying fix:', error);
     }

@@ -11,7 +11,8 @@ import { defaultBrandProfile, validateBrandProfile, BrandProfile } from "../../b
 import type { DocumentSandboxApi } from "../../models/DocumentSandboxApi";
 import type { AddOnSDKAPI } from "https://new.express.adobe.com/static/add-on-sdk/sdk.js";
 import ScorePanel from "./ScorePanel";
-import FixesPanel from "./fixes/FixesPanel";
+import { analyzeDesign, extractViolations } from "../../services/backendAnalyze";
+import ViolationsFixesPanel from "./fixes/ViolationsFixesPanel";
 
 type FixAction = {
   label: string;
@@ -45,11 +46,49 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
   async function handleAnalyzeClick() {
     setStatus("Analyzing design...");
     try {
-      // Pass brandProfile as payload to sandbox
-      const analysis = await sandboxProxy.analyzeBrandCompliance({ brandProfile });
-      setResult(analysis);
+      // Step 1: Extract design layers from Adobe Express canvas
+      const design = await sandboxProxy.getDesign();
+      
+      // Step 2: Transform brandProfile to brandRules format
+      const brandRules = {
+        brandId: "default-brand",
+        visual: {
+          colors: ["#0057B8", "#FFFFFF", "#1A1A1A", "#FFD100"], // TODO: Get from brandProfile
+          fonts: ["Inter", "Arial", "Helvetica Neue"],
+          logo: {
+            minWidth: 100,
+            aspectRatio: 2.0,
+            padding: 20,
+          },
+        },
+        content: {
+          tone: brandProfile.tonePreference || "professional",
+          forbiddenPhrases: brandProfile.disallowedPhrases || [],
+          preferredTerms: brandProfile.preferredTerms || [],
+          locale: "en-US",
+        },
+      };
+
+      // Step 3: Call backend /analyze to get violations with fixAction
+      const backendAnalysis = await analyzeDesign(design, brandRules);
+      
+      // Step 4: Extract violations with fixAction from backend response
+      const violations = extractViolations(backendAnalysis);
+      
+      // Step 5: Merge with sandbox analysis results (for display)
+      const sandboxAnalysis = await sandboxProxy.analyzeBrandCompliance({ brandProfile });
+      
+      // Combine results: use backend score and violations, keep sandbox metadata
+      setResult({
+        ...sandboxAnalysis,
+        brandScore: backendAnalysis.result?.legacy?.brandScore || sandboxAnalysis.brandScore,
+        violations, // Backend violations with fixAction
+        backendAnalysis, // Full backend response for reference
+      });
+      
       setStatus("Analysis complete");
     } catch (err) {
+      console.error("Analysis error:", err);
       setStatus("Analysis failed");
     }
   }
@@ -169,33 +208,12 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
           </div>
         )}
         {/* NEW: Fixes Panel (conditionally rendered) */}
-        {showFixes && result && (
+        {showFixes && result && result.violations && (
           <div style={{ marginTop: "16px", borderTop: "1px solid #e0e0e0", paddingTop: "16px" }}>
-            <FixesPanel
-              designId={designId}
-              brandId="default-brand" // TODO: Get from brandProfile or user selection
-              industry="general" // TODO: Get from brandProfile or user selection
-              complianceResults={{
-                violations: [], // TODO: Transform result.issues to violations format
-                score: result.brandScore || 0,
-                design: { layers: [] } // TODO: Get from sandbox
-              }}
-              design={{ layers: [] }} // TODO: Get from sandbox
-              brandRules={{
-                brandId: "default-brand",
-                visual: {
-                  colors: [], // TODO: Extract from brandProfile if available
-                  fonts: [],
-                  logo: {}
-                },
-                content: {
-                  tone: brandProfile.tonePreference || "professional",
-                  forbiddenPhrases: brandProfile.disallowedPhrases || [],
-                  locale: "en-US"
-                }
-              }}
+            <ViolationsFixesPanel
+              violations={result.violations}
               onFixApplied={async () => {
-                // Re-analyze after fix is applied
+                // Re-analyze after fix is applied to update canvas and score
                 await handleAnalyzeClick();
               }}
               sandboxProxy={sandboxProxy}
