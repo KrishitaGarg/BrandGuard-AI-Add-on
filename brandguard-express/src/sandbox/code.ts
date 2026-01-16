@@ -17,12 +17,117 @@ function start(): void {
    * @returns {Promise<{score: number, issues: any[]}>}
    */
   async function aiApiCall(prompt: { [key: string]: any }): Promise<{ score: number; issues: any[] }> {
-    // This is a placeholder. In production, call your OpenAI endpoint here.
-    // For safety, always return the required schema.
-    return {
-      score: 100,
-      issues: []
-    };
+    console.log("[AI] aiApiCall triggered with prompt:", prompt);
+    
+    // Extract text and brand guidelines from prompt
+    const text = prompt.text || '';
+    const brandGuidelines = prompt.brandGuidelines || {};
+    
+    if (!text || typeof text !== 'string') {
+      console.log("[AI] No text provided, returning empty result");
+      return { score: 100, issues: [] };
+    }
+
+    try {
+      // Call backend Groq API via /api/analyze endpoint
+      // Transform to match backend expected format
+      const design = {
+        layers: [
+          {
+            type: 'text',
+            content: text,
+          }
+        ]
+      };
+
+      const brandRules = {
+        content: {
+          tone: brandGuidelines.tonePreference || brandGuidelines.tone || 'neutral',
+          forbiddenPhrases: brandGuidelines.disallowedPhrases || [],
+        },
+        visual: {
+          colors: [],
+          fonts: [],
+        }
+      };
+
+      console.log("[AI] Calling backend /api/analyze for text analysis");
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          design,
+          brandRules,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("[AI] Backend call failed:", response.statusText);
+        return { score: 100, issues: [] };
+      }
+
+      const backendResult = await response.json();
+      console.log("[AI] Backend response received:", backendResult);
+
+      // Extract AI issues from backend response
+      // The backend Groq analysis returns issues in result.ai.issues
+      let aiIssues = [];
+      if (backendResult.result?.ai?.issues && Array.isArray(backendResult.result.ai.issues)) {
+        aiIssues = backendResult.result.ai.issues;
+      }
+
+      // Transform backend issues to frontend format expected by analyzeTextCompliance
+      const issues = aiIssues
+        .filter((issue: any) => issue && typeof issue === 'object')
+        .map((issue: any) => {
+          // Create rewrite suggestions from various sources
+          const rewriteSuggestions: any[] = [];
+          
+          // If issue has autofix with suggested text
+          if (issue.autofix?.text) {
+            rewriteSuggestions.push({
+              style: 'neutral',
+              text: issue.autofix.text
+            });
+          }
+          
+          // If issue has suggestion text
+          if (issue.suggestion && typeof issue.suggestion === 'string') {
+            rewriteSuggestions.push({
+              style: 'neutral',
+              text: issue.suggestion
+            });
+          }
+          
+          // If issue already has rewriteSuggestions
+          if (Array.isArray(issue.rewriteSuggestions)) {
+            rewriteSuggestions.push(...issue.rewriteSuggestions);
+          }
+
+          return {
+            type: issue.type || 'Brand voice deviation',
+            severity: issue.severity === 'critical' ? 'critical' : 'warning',
+            explanation: issue.explanation || issue.suggestion || '',
+            rewriteSuggestions: rewriteSuggestions.length > 0 ? rewriteSuggestions : []
+          };
+        })
+        .filter((issue: any) => issue.rewriteSuggestions.length > 0 || issue.explanation);
+
+      // Calculate score based on issues (lower score for more issues)
+      const score = issues.length === 0 ? 100 : Math.max(0, 100 - (issues.length * 15));
+
+      console.log("[AI] Returning", issues.length, "issues with score", score);
+      if (issues.length > 0) {
+        console.log("[AI] Sample issue:", JSON.stringify(issues[0], null, 2));
+      }
+      return { score, issues };
+    } catch (error) {
+      console.error("[AI] Error calling backend:", error);
+      // Return empty result on error (non-blocking)
+      return { score: 100, issues: [] };
+    }
   }
 
   const sandboxApi: DocumentSandboxApi = {
