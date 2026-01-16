@@ -163,26 +163,9 @@ export async function applyAutofix(request: AutofixRequest): Promise<AutofixResp
       }
     }
 
-    // 3. Apply tone fixes from issues (use rewriteSuggestions)
-    if (issues && Array.isArray(issues)) {
-      for (const issue of issues) {
-        if (issue.rewriteSuggestions && Array.isArray(issue.rewriteSuggestions)) {
-          // Use the first rewrite suggestion as the fix
-          const suggestion = issue.rewriteSuggestions.find((s: any) => s.text);
-          if (suggestion && suggestion.text && suggestion.text !== fixedText) {
-            appliedFixes.push({
-              type: 'tone_rewrite',
-              issue: issue.explanation || issue.type || 'Tone violation',
-              before: fixedText,
-              after: suggestion.text,
-              applied: true,
-            });
-            fixedText = suggestion.text;
-            break; // Apply first suggestion only
-          }
-        }
-      }
-    }
+    // Note: Sentence-level suggestions (rewriteSuggestions) are handled separately
+    // in the UI layer, not in word-level autofix. This keeps word-level fixes
+    // deterministic and separate from AI-powered sentence rewrites.
 
     const changed = appliedFixes.length > 0;
 

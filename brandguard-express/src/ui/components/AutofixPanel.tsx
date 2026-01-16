@@ -25,6 +25,11 @@ interface TextIssue {
   fixedText?: string;
   diff?: string;
   applying?: boolean;
+  sentenceSuggestions?: Array<{
+    original: string;
+    suggested: string;
+    explanation: string;
+  }>;
 }
 
 export default function AutofixPanel({
@@ -47,10 +52,34 @@ export default function AutofixPanel({
       textComplianceResults.forEach((result: any) => {
         // Only include results with issues
         if (result.issues && result.issues.length > 0 && result.score < 100) {
+          // Extract sentence-level suggestions from rewriteSuggestions
+          const sentenceSuggestions: Array<{
+            original: string;
+            suggested: string;
+            explanation: string;
+          }> = [];
+          
+          for (const issue of result.issues || []) {
+            if (issue.rewriteSuggestions && Array.isArray(issue.rewriteSuggestions)) {
+              for (const suggestion of issue.rewriteSuggestions) {
+                // Include sentence-level suggestions (have 'text' property, not just word replacements)
+                if (suggestion.text && suggestion.text !== result.originalText) {
+                  sentenceSuggestions.push({
+                    original: result.originalText,
+                    suggested: suggestion.text,
+                    explanation: issue.explanation || issue.type || 'Sentence improvement',
+                  });
+                  break; // One sentence suggestion per issue
+                }
+              }
+            }
+          }
+          
           issues.push({
             layerId: result.layerId || `layer-${issues.length}`,
             originalText: result.originalText || '',
             issues: result.issues || [],
+            sentenceSuggestions: sentenceSuggestions.length > 0 ? sentenceSuggestions : undefined,
           });
         }
       });
@@ -141,6 +170,48 @@ export default function AutofixPanel({
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
       await handleApplyFix(issue);
+    }
+  };
+
+  const handleApplySentenceSuggestion = async (issue: TextIssue, suggestedText: string) => {
+    setTextIssues((prev) =>
+      prev.map((i) =>
+        i.layerId === issue.layerId ? { ...i, applying: true } : i
+      )
+    );
+
+    try {
+      // Capture original text for undo before applying
+      setUndoData((prev) => ({
+        ...prev,
+        [issue.layerId]: issue.originalText,
+      }));
+
+      // Apply sentence suggestion to canvas
+      await sandboxProxy.applyTextFix({
+        layerId: issue.layerId,
+        fixedText: suggestedText,
+        originalText: issue.originalText,
+      });
+
+      // Re-analyze to update score
+      await onFixApplied();
+
+      // Remove from issues list (fix applied)
+      setTextIssues((prev) => prev.filter((i) => i.layerId !== issue.layerId));
+    } catch (error) {
+      console.error('Error applying sentence suggestion:', error);
+      setUndoData((prev) => {
+        const updated = { ...prev };
+        delete updated[issue.layerId];
+        return updated;
+      });
+    } finally {
+      setTextIssues((prev) =>
+        prev.map((i) =>
+          i.layerId === issue.layerId ? { ...i, applying: false } : i
+        )
+      );
     }
   };
 
@@ -265,6 +336,46 @@ export default function AutofixPanel({
                     {issue.fixedText}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {issue.sentenceSuggestions && issue.sentenceSuggestions.length > 0 && (
+              <div style={{ marginBottom: '14px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 500, color: '#888', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Sentence Suggestions
+                </div>
+                {issue.sentenceSuggestions.map((suggestion, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '12px',
+                      backgroundColor: '#fafafa',
+                      borderRadius: '4px',
+                      marginBottom: '10px',
+                      border: '1px solid #e8e8e8'
+                    }}
+                  >
+                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>
+                      {suggestion.explanation}
+                    </div>
+                    <div style={{ marginBottom: '8px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 500, color: '#888', marginBottom: '4px' }}>
+                        Suggested
+                      </div>
+                      <div style={{ color: '#2c2c2c', fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.5' }}>
+                        {suggestion.suggested}
+                      </div>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      onClick={() => handleApplySentenceSuggestion(issue, suggestion.suggested)}
+                      disabled={issue.applying}
+                      style={{ fontSize: '12px', padding: '5px 11px' }}
+                    >
+                      {issue.applying ? 'Applying...' : 'Apply Suggestion'}
+                    </Button>
+                  </div>
+                ))}
               </div>
             )}
 
