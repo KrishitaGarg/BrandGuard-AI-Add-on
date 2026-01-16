@@ -38,17 +38,27 @@ function escapeRegExp(str: string): string {
 }
 
 /**
- * Find a replacement for a disallowed term
+ * Find a replacement for a disallowed term from preferred terms map
  */
 function findReplacement(
   term: string,
-  preferredTermsMap: Record<string, string>,
-  disallowedTerms: string[]
-): string | null {
-  // Try to find a preferred term that could replace this
-  // For now, return null (will be replaced with [removed])
-  // In a real implementation, you might use a synonym dictionary
-  return null;
+  preferredTermsMap: Record<string, string>
+): string {
+  // Check if the disallowed term has a preferred replacement
+  if (preferredTermsMap[term]) {
+    return preferredTermsMap[term];
+  }
+  
+  // Case-insensitive lookup
+  const lowerTerm = term.toLowerCase();
+  for (const [key, value] of Object.entries(preferredTermsMap)) {
+    if (key.toLowerCase() === lowerTerm) {
+      return value;
+    }
+  }
+  
+  // No replacement found - return empty string to remove the term
+  return '';
 }
 
 /**
@@ -116,8 +126,8 @@ export async function applyAutofix(request: AutofixRequest): Promise<AutofixResp
 
       const regex = new RegExp(`\\b${escapeRegExp(term)}\\b`, 'gi');
       if (regex.test(fixedText)) {
-        const replacement = findReplacement(term, preferredTermsMap, disallowedTerms);
-        const newText = fixedText.replace(regex, replacement || '[removed]');
+        const replacement = findReplacement(term, preferredTermsMap);
+        const newText = fixedText.replace(regex, replacement);
 
         if (newText !== fixedText) {
           appliedFixes.push({
