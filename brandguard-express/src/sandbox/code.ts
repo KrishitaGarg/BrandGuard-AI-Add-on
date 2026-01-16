@@ -60,15 +60,30 @@ function start(): void {
 
       // Extract AI issues from backend response
       // The backend Groq analysis returns issues in result.ai.issues
-      let aiIssues = [];
+      interface BackendIssue {
+        type?: string;
+        severity?: string;
+        explanation?: string;
+        suggestion?: string;
+        autofix?: { text?: string };
+        rewriteSuggestions?: Array<{ style?: string; text?: string }>;
+      }
+      let aiIssues: BackendIssue[] = [];
       if (backendResult.result?.ai?.issues && Array.isArray(backendResult.result.ai.issues)) {
-        aiIssues = backendResult.result.ai.issues;
+        aiIssues = backendResult.result.ai.issues as BackendIssue[];
       }
 
       // Transform backend issues to frontend format expected by analyzeTextCompliance
-      let issues = aiIssues
-        .filter((issue: any) => issue && typeof issue === 'object')
-        .map((issue: any) => {
+      interface TransformedIssue {
+        type: string;
+        severity: 'critical' | 'warning';
+        explanation: string;
+        rewriteSuggestions: Array<{ style: string; text: string }>;
+        _originalIssue?: BackendIssue;
+      }
+      let issues: TransformedIssue[] = aiIssues
+        .filter((issue: BackendIssue) => issue && typeof issue === 'object')
+        .map((issue: BackendIssue) => {
           // Create rewrite suggestions from various sources
           const rewriteSuggestions: any[] = [];
           
