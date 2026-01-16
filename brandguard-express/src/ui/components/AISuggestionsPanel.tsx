@@ -18,6 +18,13 @@ interface AISuggestionsPanelProps {
   sandboxProxy: DocumentSandboxApi;
 }
 
+interface CollapsibleSectionsState {
+  headlineSuggestions: boolean;
+  bodyCopySuggestions: boolean;
+  ctaSuggestions: boolean;
+  supportingCopySuggestions: boolean;
+}
+
 export default function AISuggestionsPanel({
   canvasData,
   brandProfile,
@@ -32,6 +39,12 @@ export default function AISuggestionsPanel({
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedSections, setExpandedSections] = useState<CollapsibleSectionsState>({
+    headlineSuggestions: false,
+    bodyCopySuggestions: false,
+    ctaSuggestions: false,
+    supportingCopySuggestions: false,
+  });
 
   const loadSuggestions = async () => {
     setLoading(true);
@@ -63,6 +76,13 @@ export default function AISuggestionsPanel({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasData?.layers?.length, brandProfile.tonePreference]);
+
+  const toggleSection = (section: keyof CollapsibleSectionsState) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
 
   const handleApplySuggestion = async (text: string) => {
     try {
@@ -98,6 +118,115 @@ export default function AISuggestionsPanel({
     } catch (error) {
       console.error('Error applying suggestion:', error);
     }
+  };
+
+  const CollapsibleSectionHeader = ({
+    title,
+    count,
+    isExpanded,
+    onToggle,
+  }: {
+    title: string;
+    count: number;
+    isExpanded: boolean;
+    onToggle: () => void;
+  }) => (
+    <button
+      onClick={onToggle}
+      style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        backgroundColor: 'transparent',
+        border: 'none',
+        padding: '8px 0',
+        cursor: 'pointer',
+        fontSize: '11px',
+        fontWeight: 500,
+        color: '#888',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+        transition: 'all 0.2s ease',
+        marginBottom: '8px',
+      }}
+    >
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '16px',
+          height: '16px',
+          marginRight: '6px',
+          transition: 'transform 0.2s ease',
+          transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)',
+          fontSize: '12px',
+        }}
+      >
+        ▼
+      </span>
+      {title} ({count})
+    </button>
+  );
+
+  const SuggestionCard = ({ suggestion }: { suggestion: string }) => (
+    <div
+      style={{
+        padding: '12px',
+        backgroundColor: '#fafafa',
+        borderRadius: '4px',
+        marginBottom: '8px',
+        border: '1px solid #e8e8e8',
+        transition: 'all 0.2s ease',
+      }}
+    >
+      <div style={{ color: '#2c2c2c', fontSize: '13px', marginBottom: '8px', lineHeight: '1.5' }}>
+        {suggestion}
+      </div>
+      <Button
+        variant="secondary"
+        onClick={() => handleApplySuggestion(suggestion)}
+        style={{ fontSize: '12px', padding: '4px 10px' }}
+      >
+        Use This
+      </Button>
+    </div>
+  );
+
+  const CollapsibleSection = ({
+    title,
+    suggestions: sectionSuggestions,
+    sectionKey,
+  }: {
+    title: string;
+    suggestions: string[];
+    sectionKey: keyof CollapsibleSectionsState;
+  }) => {
+    const isExpanded = expandedSections[sectionKey];
+
+    if (sectionSuggestions.length === 0) return null;
+
+    return (
+      <div style={{ marginBottom: '20px' }}>
+        <CollapsibleSectionHeader
+          title={title}
+          count={sectionSuggestions.length}
+          isExpanded={isExpanded}
+          onToggle={() => toggleSection(sectionKey)}
+        />
+        <div
+          style={{
+            maxHeight: isExpanded ? '1000px' : '0px',
+            overflow: 'hidden',
+            transition: 'max-height 0.3s ease',
+          }}
+        >
+          {sectionSuggestions.map((suggestion, idx) => (
+            <SuggestionCard key={idx} suggestion={suggestion} />
+          ))}
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -179,129 +308,29 @@ export default function AISuggestionsPanel({
         </Button>
       </div>
 
-      {suggestions.headlineSuggestions.length > 0 && (
-        <div style={{ marginBottom: '20px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 500, color: '#888', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Headline Options
-          </div>
-          {suggestions.headlineSuggestions.map((suggestion, idx) => (
-            <div
-              key={idx}
-              style={{
-                padding: '12px',
-                backgroundColor: '#fafafa',
-                borderRadius: '4px',
-                marginBottom: '8px',
-                border: '1px solid #e8e8e8'
-              }}
-            >
-              <div style={{ color: '#2c2c2c', fontSize: '13px', marginBottom: '8px', lineHeight: '1.5' }}>
-                {suggestion}
-              </div>
-              <Button
-                variant="secondary"
-                onClick={() => handleApplySuggestion(suggestion)}
-                style={{ fontSize: '12px', padding: '4px 10px' }}
-              >
-                Use This
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
+      <CollapsibleSection
+        title="Headline Options"
+        suggestions={suggestions.headlineSuggestions}
+        sectionKey="headlineSuggestions"
+      />
 
-      {suggestions.bodyCopySuggestions.length > 0 && (
-        <div style={{ marginBottom: '20px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 500, color: '#888', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Body Copy
-          </div>
-          {suggestions.bodyCopySuggestions.map((suggestion, idx) => (
-            <div
-              key={idx}
-              style={{
-                padding: '12px',
-                backgroundColor: '#fafafa',
-                borderRadius: '4px',
-                marginBottom: '8px',
-                border: '1px solid #e8e8e8'
-              }}
-            >
-              <div style={{ color: '#2c2c2c', fontSize: '13px', marginBottom: '8px', lineHeight: '1.5' }}>
-                {suggestion}
-              </div>
-              <Button
-                variant="secondary"
-                onClick={() => handleApplySuggestion(suggestion)}
-                style={{ fontSize: '12px', padding: '4px 10px' }}
-              >
-                Use This
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
+      <CollapsibleSection
+        title="Body Copy"
+        suggestions={suggestions.bodyCopySuggestions}
+        sectionKey="bodyCopySuggestions"
+      />
 
-      {suggestions.ctaSuggestions.length > 0 && (
-        <div style={{ marginBottom: '20px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 500, color: '#888', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Call-to-Action Options
-          </div>
-          {suggestions.ctaSuggestions.map((suggestion, idx) => (
-            <div
-              key={idx}
-              style={{
-                padding: '12px',
-                backgroundColor: '#fafafa',
-                borderRadius: '4px',
-                marginBottom: '8px',
-                border: '1px solid #e8e8e8'
-              }}
-            >
-              <div style={{ color: '#2c2c2c', fontSize: '13px', marginBottom: '8px', lineHeight: '1.5' }}>
-                {suggestion}
-              </div>
-              <Button
-                variant="secondary"
-                onClick={() => handleApplySuggestion(suggestion)}
-                style={{ fontSize: '12px', padding: '4px 10px' }}
-              >
-                Use This
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
+      <CollapsibleSection
+        title="Call-to-Action Options"
+        suggestions={suggestions.ctaSuggestions}
+        sectionKey="ctaSuggestions"
+      />
 
-      {suggestions.supportingCopySuggestions.length > 0 && (
-        <div style={{ marginBottom: '20px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 500, color: '#888', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Supporting Copy
-          </div>
-          {suggestions.supportingCopySuggestions.map((suggestion, idx) => (
-            <div
-              key={idx}
-              style={{
-                padding: '12px',
-                backgroundColor: '#fafafa',
-                borderRadius: '4px',
-                marginBottom: '8px',
-                border: '1px solid #e8e8e8'
-              }}
-            >
-              <div style={{ color: '#2c2c2c', fontSize: '13px', marginBottom: '8px', lineHeight: '1.5' }}>
-                {suggestion}
-              </div>
-              <Button
-                variant="secondary"
-                onClick={() => handleApplySuggestion(suggestion)}
-                style={{ fontSize: '12px', padding: '4px 10px' }}
-              >
-                Use This
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
+      <CollapsibleSection
+        title="Supporting Copy"
+        suggestions={suggestions.supportingCopySuggestions}
+        sectionKey="supportingCopySuggestions"
+      />
     </div>
   );
 }

@@ -172,12 +172,13 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
             <ScorePanel score={result.brandScore || 0} />
             {/* Issue grouping and hierarchy */}
             {result.issues && result.issues.length > 0 ? (
-              <>
-                <div style={{ marginBottom: 8 }}>
-                  <strong>Issues</strong>
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 12, letterSpacing: '-0.5px', display: 'flex', alignItems: 'center' }}>
+                  <span style={{ borderLeft: '4px solid #388e3c', height: 20, marginRight: 10, borderRadius: 2 }}></span>
+                  Issues
                 </div>
+                {/* Group issues by type and render */}
                 {(() => {
-                  // Group issues by type
                   const groups: { [type: string]: Array<string | JSX.Element> } = {};
                   result.issues.forEach((issue: string | JSX.Element) => {
                     let type = "Other";
@@ -190,98 +191,118 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
                     if (!groups[type]) groups[type] = [];
                     groups[type].push(issue);
                   });
-                  return Object.entries(groups).map(([type, issuesArr], idx) => (
-                    <div key={type} style={{ marginBottom: 18 }}>
-                      <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>
-                        {type} <span style={{ background: '#eee', borderRadius: 10, padding: '2px 8px', fontSize: 12, marginLeft: 6 }}>{issuesArr.length} issue{issuesArr.length > 1 ? 's' : ''}</span>
-                      </div>
-                      <ul style={{ paddingLeft: 16 }}>
-                        {issuesArr.map((issue, i) => {
-                          if (typeof issue !== 'string') {
-                            // If issue is a JSX element, render it directly
-                            return (
-                              <li key={i} style={{ marginBottom: 8, listStyle: 'none', borderLeft: '4px solid #bdbdbd', background: '#f7f7fa', padding: '8px 12px', borderRadius: 6 }}>
-                                {issue}
-                              </li>
-                            );
-                          }
-                          // Violation vs suggestion distinction
-                          const isSuggestion = issue.toLowerCase().includes("suggestion") || issue.toLowerCase().includes("replace") || issue.toLowerCase().includes("use a");
-                          const isViolation = !isSuggestion;
-                          // Improved issue text rendering
-                          let improvedText: JSX.Element | string = issue;
-                          // Disallowed phrase violation
-                          if (typeof issue === 'string' && issue.match(/disallowed phrase '(.+?)'/i)) {
-                            const match = issue.match(/disallowed phrase '(.+?)'/i);
-                            const penaltyMatch = issue.match(/penalty: (-?\d+)/i);
-                            improvedText = (
-                              <>
-                                <div><span style={{ color: '#d32f2f', fontWeight: 600 }}>Disallowed phrase detected:</span> <span style={{ background: '#ffeaea', borderRadius: 4, padding: '2px 6px', fontWeight: 500 }}>{match ? match[1] : ''}</span></div>
-                                <div style={{ color: '#555', marginTop: 2 }}>Rule violated: <span style={{ fontWeight: 500 }}>Disallowed Phrases</span></div>
-                                {penaltyMatch && <div style={{ color: '#d32f2f', fontSize: 13, marginTop: 2 }}>Penalty: {penaltyMatch[1]} (must fix)</div>}
-                              </>
-                            );
-                          }
-                          // Tone mismatch
-                          else if (typeof issue === 'string' && issue.match(/tone mismatch.*phrase '(.+?)'/i)) {
-                            const match = issue.match(/tone mismatch.*phrase '(.+?)'/i);
-                            const penaltyMatch = issue.match(/penalty: (-?\d+)/i);
-                            improvedText = (
-                              <>
-                                <div><span style={{ color: '#d32f2f', fontWeight: 600 }}>Tone mismatch detected:</span> <span style={{ background: '#ffeaea', borderRadius: 4, padding: '2px 6px', fontWeight: 500 }}>{match ? match[1] : ''}</span></div>
-                                <div style={{ color: '#555', marginTop: 2 }}>Rule violated: <span style={{ fontWeight: 500 }}>Tone Preference</span></div>
-                                {penaltyMatch && <div style={{ color: '#d32f2f', fontSize: 13, marginTop: 2 }}>Penalty: {penaltyMatch[1]} (must fix)</div>}
-                              </>
-                            );
-                          }
-                          // Risky claims
-                          else if (typeof issue === 'string' && issue.match(/claims strictness.*phrase '(.+?)'/i)) {
-                            const match = issue.match(/claims strictness.*phrase '(.+?)'/i);
-                            const penaltyMatch = issue.match(/penalty: (-?\d+)/i);
-                            improvedText = (
-                              <>
-                                <div><span style={{ color: '#d32f2f', fontWeight: 600 }}>Risky claim detected:</span> <span style={{ background: '#ffeaea', borderRadius: 4, padding: '2px 6px', fontWeight: 500 }}>{match ? match[1] : ''}</span></div>
-                                <div style={{ color: '#555', marginTop: 2 }}>Rule violated: <span style={{ fontWeight: 500 }}>Claims Strictness</span></div>
-                                {penaltyMatch && <div style={{ color: '#d32f2f', fontSize: 13, marginTop: 2 }}>Penalty: {penaltyMatch[1]} (must fix)</div>}
-                              </>
-                            );
-                          }
-                          // Suggestions (diff-style formatting preserved)
-                          else if (typeof issue === 'string' && isSuggestion && issue.match(/Replace '(.+?)' with '(.+?)'/)) {
-                            const match = issue.match(/Replace '(.+?)' with '(.+?)'/);
-                            improvedText = match ? (
-                              <div>
-                                <span style={{ textDecoration: 'line-through', color: '#888', marginRight: 6 }}>{match[1]}</span>
-                                <span style={{ color: '#388e3c', fontWeight: 600 }}>{match[2]}</span>
-                              </div>
-                            ) : <div>{issue.replace('[AI suggestion] ', '')}</div>;
-                          } else if (typeof issue === 'string' && isSuggestion && issue.match(/Use a (.+?)-style alternative instead of '(.+?)'/)) {
-                            const match = issue.match(/Use a (.+?)-style alternative instead of '(.+?)'/);
-                            improvedText = match ? (
-                              <div>
-                                <span style={{ textDecoration: 'line-through', color: '#888', marginRight: 6 }}>{match[2]}</span>
-                                <span style={{ color: '#388e3c', fontWeight: 600 }}>{`Use a ${match[1]}-style alternative`}</span>
-                              </div>
-                            ) : <div>{issue.replace('[AI suggestion] ', '')}</div>;
-                          } else if (typeof issue === 'string') {
-                            improvedText = <div>{issue.replace('[AI suggestion] ', '')}</div>;
-                          }
-                          return (
-                            <li key={i} style={{ marginBottom: 8, listStyle: 'none', borderLeft: isViolation ? '4px solid #e57373' : '4px solid #bdbdbd', background: isViolation ? '#fff6f6' : '#f7f7fa', padding: '8px 12px', borderRadius: 6 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 2 }}>
-                                <span style={{ fontWeight: 500, color: isViolation ? '#d32f2f' : '#555', marginRight: 8 }}>{isViolation ? 'Must fix' : 'Suggestion'}</span>
-                                {isViolation && <span style={{ fontSize: 11, color: '#d32f2f', background: '#ffeaea', borderRadius: 6, padding: '2px 6px', marginLeft: 6 }}>Violation</span>}
-                                {!isViolation && <span style={{ fontSize: 11, color: '#555', background: '#eee', borderRadius: 6, padding: '2px 6px', marginLeft: 6 }}>Optional</span>}
-                              </div>
-                              {improvedText}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ));
+                  const accentColors: { [type: string]: string } = {
+                    'Other': '#bdbdbd',
+                    'Disallowed Phrases': '#d32f2f',
+                    'Tone Mismatch': '#fbc02d',
+                    'Risky Claims': '#1976d2',
+                    'Suggestions': '#388e3c',
+                  };
+                  return (
+                    <>
+                      {Object.entries(groups).map(([type, issuesArr], idx) => (
+                        <React.Fragment key={type}>
+                          <div style={{
+                            fontWeight: 800,
+                            fontSize: 15,
+                            margin: '18px 0 4px 2px',
+                            letterSpacing: '0.5px',
+                            color: accentColors[type] || '#888',
+                            textTransform: 'uppercase',
+                            opacity: 0.85,
+                          }}>
+                            CATEGORY: {type}
+                          </div>
+                          <ul style={{ paddingLeft: 0, margin: '0 0 24px 0' }}>
+                            {issuesArr.map((issue, i) => {
+                              if (typeof issue !== 'string') {
+                                return (
+                                  <li key={i} style={{ marginBottom: 10, listStyle: 'none', borderLeft: '4px solid #bdbdbd', background: '#f7f7fa', padding: '10px 14px', borderRadius: 7 }}>
+                                    {issue}
+                                  </li>
+                                );
+                              }
+                              const isSuggestion = issue.toLowerCase().includes("suggestion") || issue.toLowerCase().includes("replace") || issue.toLowerCase().includes("use a");
+                              const isViolation = !isSuggestion;
+                              let improvedText: JSX.Element | string = issue;
+                              if (typeof issue === 'string' && issue.match(/disallowed phrase '(.+?)'/i)) {
+                                const match = issue.match(/disallowed phrase '(.+?)'/i);
+                                const penaltyMatch = issue.match(/penalty: (-?\d+)/i);
+                                improvedText = (
+                                  <>
+                                    <div><span style={{ color: '#d32f2f', fontWeight: 600 }}>Disallowed phrase detected:</span> <span style={{ background: '#ffeaea', borderRadius: 4, padding: '2px 6px', fontWeight: 500 }}>{match ? match[1] : ''}</span></div>
+                                    <div style={{ color: '#555', marginTop: 2 }}>Rule violated: <span style={{ fontWeight: 500 }}>Disallowed Phrases</span></div>
+                                    {penaltyMatch && <div style={{ color: '#d32f2f', fontSize: 13, marginTop: 2 }}>Penalty: {penaltyMatch[1]} (must fix)</div>}
+                                  </>
+                                );
+                              }
+                              else if (typeof issue === 'string' && issue.match(/tone mismatch.*phrase '(.+?)'/i)) {
+                                const match = issue.match(/tone mismatch.*phrase '(.+?)'/i);
+                                const penaltyMatch = issue.match(/penalty: (-?\d+)/i);
+                                improvedText = (
+                                  <>
+                                    <div><span style={{ color: '#d32f2f', fontWeight: 600 }}>Tone mismatch detected:</span> <span style={{ background: '#ffeaea', borderRadius: 4, padding: '2px 6px', fontWeight: 500 }}>{match ? match[1] : ''}</span></div>
+                                    <div style={{ color: '#555', marginTop: 2 }}>Rule violated: <span style={{ fontWeight: 500 }}>Tone Preference</span></div>
+                                    {penaltyMatch && <div style={{ color: '#d32f2f', fontSize: 13, marginTop: 2 }}>Penalty: {penaltyMatch[1]} (must fix)</div>}
+                                  </>
+                                );
+                              }
+                              else if (typeof issue === 'string' && issue.match(/claims strictness.*phrase '(.+?)'/i)) {
+                                const match = issue.match(/claims strictness.*phrase '(.+?)'/i);
+                                const penaltyMatch = issue.match(/penalty: (-?\d+)/i);
+                                improvedText = (
+                                  <>
+                                    <div><span style={{ color: '#d32f2f', fontWeight: 600 }}>Risky claim detected:</span> <span style={{ background: '#ffeaea', borderRadius: 4, padding: '2px 6px', fontWeight: 500 }}>{match ? match[1] : ''}</span></div>
+                                    <div style={{ color: '#555', marginTop: 2 }}>Rule violated: <span style={{ fontWeight: 500 }}>Claims Strictness</span></div>
+                                    {penaltyMatch && <div style={{ color: '#d32f2f', fontSize: 13, marginTop: 2 }}>Penalty: {penaltyMatch[1]} (must fix)</div>}
+                                  </>
+                                );
+                              }
+                              else if (typeof issue === 'string' && isSuggestion && issue.match(/Replace '(.+?)' with '(.+?)'/)) {
+                                const match = issue.match(/Replace '(.+?)' with '(.+?)'/);
+                                improvedText = match ? (
+                                  <div>
+                                    <span style={{ textDecoration: 'line-through', color: '#888', marginRight: 6 }}>{match[1]}</span>
+                                    <span style={{ color: '#388e3c', fontWeight: 600 }}>{match[2]}</span>
+                                  </div>
+                                ) : <div>{issue.replace('[AI suggestion] ', '')}</div>;
+                              } else if (typeof issue === 'string' && isSuggestion && issue.match(/Use a (.+?)-style alternative instead of '(.+?)'/)) {
+                                const match = issue.match(/Use a (.+?)-style alternative instead of '(.+?)'/);
+                                improvedText = match ? (
+                                  <div>
+                                    <span style={{ textDecoration: 'line-through', color: '#888', marginRight: 6 }}>{match[2]}</span>
+                                    <span style={{ color: '#388e3c', fontWeight: 600 }}>{`Use a ${match[1]}-style alternative`}</span>
+                                  </div>
+                                ) : <div>{issue.replace('[AI suggestion] ', '')}</div>;
+                              } else if (typeof issue === 'string') {
+                                improvedText = <div>{issue.replace('[AI suggestion] ', '')}</div>;
+                              }
+                              return (
+                                <li key={i} style={{
+                                  marginBottom: 10,
+                                  listStyle: 'none',
+                                  borderLeft: isViolation ? '4px solid #e57373' : '4px solid #bdbdbd',
+                                  background: isViolation ? '#fff6f6' : '#f7f7fa',
+                                  padding: '10px 14px',
+                                  borderRadius: 7,
+                                  boxShadow: isViolation ? '0 1px 4px #e5737322' : '0 1px 4px #bdbdbd22',
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 2 }}>
+                                    <span style={{ fontWeight: 500, color: isViolation ? '#d32f2f' : '#555', marginRight: 8 }}>{isViolation ? 'Must fix' : 'Suggestion'}</span>
+                                    {isViolation && <span style={{ fontSize: 11, color: '#d32f2f', background: '#ffeaea', borderRadius: 6, padding: '2px 6px', marginLeft: 6 }}>Violation</span>}
+                                    {!isViolation && <span style={{ fontSize: 11, color: '#555', background: '#eee', borderRadius: 6, padding: '2px 6px', marginLeft: 6 }}>Optional</span>}
+                                  </div>
+                                  {improvedText}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </React.Fragment>
+                      ))}
+                    </>
+                  );
                 })()}
-              </>
+              </div>
             ) : (
               <div style={{ color: '#388e3c', background: '#f6fff6', borderRadius: 8, padding: 12, marginTop: 8 }}>
                 <strong>No compliance issues found for the selected elements.</strong>
