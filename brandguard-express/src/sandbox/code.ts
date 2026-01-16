@@ -66,10 +66,23 @@ function start(): void {
         if ("text" in (node as object)) {
           textLayers++;
           const text = (node as any).text || "";
+          let layerId = (node as any).id;
+          
+          // Ensure layer has an ID for autofix matching
+          if (!layerId) {
+            layerId = `text-layer-${textLayers}`;
+            (node as any).id = layerId;
+          }
+          
           // Debug log: text sent to compliance engine
-          console.log("TEXT ANALYZED:", text);
+          console.log("TEXT ANALYZED:", text, "LayerId:", layerId);
           const result = await analyzeTextCompliance(text, brandProfile, aiApiCall);
-          textComplianceResults.push(result);
+          // Include layer ID and original text for autofix
+          textComplianceResults.push({
+            ...result,
+            layerId,
+            originalText: text,
+          });
           textComplianceScoreSum += result.score;
           if (result.issues && result.issues.length > 0) {
             textComplianceIssues.push(...result.issues);
@@ -250,6 +263,103 @@ function start(): void {
           (root as any).appendChild(newLayer);
         }
       }
+    },
+    
+    // Apply text fix to a specific layer
+    applyTextFix: async ({ layerId, fixedText, originalText }) => {
+      const root = editor.context.insertionParent;
+      const children = Array.from(root.children);
+      
+      // Find the layer by ID first, or fallback to matching by original text
+      let layer = children.find((node: any) => node.id === layerId);
+      
+      // Fallback: if not found by ID, try to match by original text content
+      if (!layer && originalText) {
+        layer = children.find((node: any) => 
+          "text" in node && (node as any).text === originalText
+        );
+      }
+      
+      if (!layer) {
+        console.warn(`Layer ${layerId} not found. Available layers:`, 
+          children.map((n: any) => ({ id: n.id, hasText: "text" in n, text: (n as any).text }))
+        );
+        return {
+          status: "error",
+          message: `Layer ${layerId} not found`
+        };
+      }
+
+      // Ensure layer has an ID for future lookups
+      if (!layer.id) {
+        (layer as any).id = layerId;
+      }
+
+      // Update text content - try direct assignment first
+      if ("text" in layer) {
+        const oldText = (layer as any).text;
+        
+        // Direct assignment - this should work with Adobe Express SDK
+        (layer as any).text = fixedText;
+        
+        // Force a re-render by accessing the property again
+        // Adobe Express SDK may need this to recognize the change
+        const newTextValue = (layer as any).text;
+        
+        if (newTextValue === fixedText) {
+          return {
+            status: "fix_applied",
+            message: `Text updated for layer ${layerId}: "${oldText}" -> "${fixedText}"`
+          };
+        } else {
+          // Direct assignment didn't persist - use layer replacement as fallback
+          console.warn(`Direct text assignment failed, using layer replacement fallback`);
+          
+          try {
+            // Save layer properties before removal
+            const layerIndex = children.indexOf(layer);
+            const fontFamily = (layer as any).fontFamily;
+            const width = (layer as any).width;
+            
+            // Remove old layer
+            (root as any).removeChild(layer);
+            
+            // Create new text layer with fixed text
+            const newLayer = (editor as any).createText(fixedText);
+            if (fontFamily) (newLayer as any).fontFamily = fontFamily;
+            if (width) (newLayer as any).width = width;
+            (newLayer as any).id = layerId;
+            
+            // Insert at the same position
+            if (layerIndex < root.children.length) {
+              const refNode = root.children.item(layerIndex);
+              if (refNode) {
+                (root as any).insertBefore(newLayer, refNode);
+              } else {
+                (root as any).appendChild(newLayer);
+              }
+            } else {
+              (root as any).appendChild(newLayer);
+            }
+            
+            return {
+              status: "fix_applied",
+              message: `Text updated via layer replacement for layer ${layerId}: "${oldText}" -> "${fixedText}"`
+            };
+          } catch (replaceError) {
+            console.error("Layer replacement failed:", replaceError);
+            return {
+              status: "error",
+              message: `Failed to update text for layer ${layerId}: ${replaceError}`
+            };
+          }
+        }
+      }
+
+      return {
+        status: "error",
+        message: `Layer ${layerId} is not a text layer`
+      };
     },
 
   };

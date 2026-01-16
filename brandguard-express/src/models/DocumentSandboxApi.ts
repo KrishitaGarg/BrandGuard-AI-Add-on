@@ -20,6 +20,11 @@ export interface DesignLayer {
 
 export interface Design {
   layers: DesignLayer[];
+  canvas?: {
+    width?: number;
+    height?: number;
+    backgroundColor?: string;
+  };
 }
 
 export interface DocumentSandboxApi {
@@ -27,4 +32,5 @@ export interface DocumentSandboxApi {
   applySuggestion: () => Promise<{ status: string; message: string }>;
   getDesign: () => Promise<Design>;
   setDesign: (design: Design) => Promise<void>;
+  applyTextFix: (params: { layerId: string; fixedText: string; originalText?: string }) => Promise<{ status: string; message: string }>;
 }

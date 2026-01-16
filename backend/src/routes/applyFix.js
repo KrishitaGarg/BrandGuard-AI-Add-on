@@ -1,34 +1,52 @@
 const express = require('express');
 const router = express.Router();
+const { applyAutofix } = require('../services/autofixService');
 
-// This endpoint applies a fix to a design
-// Expected body: { designId, issueId, fix }
-
-// Helper: apply a fix to the design object
-function applyFixToDesign(design, issueId, fix) {
-  // Example: fix = { elementId, property, value }
-  if (!design || !fix || !fix.elementId || !fix.property) return design;
-  const updatedDesign = { ...design };
-  if (Array.isArray(updatedDesign.layers)) {
-    updatedDesign.layers = updatedDesign.layers.map(layer => {
-      if (layer.id === fix.elementId) {
-        return { ...layer, [fix.property]: fix.value };
-      }
-      return layer;
-    });
-  }
-  return updatedDesign;
-}
+// This endpoint applies autofix to text content
+// Expected body: { text, issues, brandGuidelines }
 
 router.post('/', async (req, res) => {
-  const { design, issueId, fix } = req.body;
-  if (!design || !fix) {
-    return res.status(400).json({ success: false, error: "Missing design or fix data" });
+  try {
+    const { text, issues, brandGuidelines } = req.body;
+
+    if (typeof text !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Missing or invalid text parameter" 
+      });
+    }
+
+    if (!brandGuidelines) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Missing brandGuidelines" 
+      });
+    }
+
+    // Apply autofix
+    const result = applyAutofix({
+      text,
+      issues: issues || [],
+      brandGuidelines: {
+        preferredTerms: brandGuidelines.preferredTerms || {},
+        disallowedTerms: brandGuidelines.disallowedTerms || [],
+        toneRules: brandGuidelines.toneRules || []
+      }
+    });
+
+    res.json({
+      success: true,
+      fixedText: result.fixedText,
+      appliedFixes: result.appliedFixes,
+      changed: result.changed
+    });
+  } catch (error) {
+    console.error('Autofix error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to apply autofix'
+    });
   }
-  // Apply the fix to the design
-  const updatedDesign = applyFixToDesign(design, issueId, fix);
-  // TODO: Optionally re-analyze design and return updated compliance info
-  res.json({ success: true, issueId, appliedFix: fix, updatedDesign });
 });
 
 module.exports = router;

@@ -11,6 +11,7 @@ import { defaultBrandProfile, validateBrandProfile, BrandProfile } from "../../b
 import type { DocumentSandboxApi } from "../../models/DocumentSandboxApi";
 import type { AddOnSDKAPI } from "https://new.express.adobe.com/static/add-on-sdk/sdk.js";
 import ScorePanel from "./ScorePanel";
+import AutofixPanel from "./AutofixPanel";
 
 type FixAction = {
   label: string;
@@ -28,6 +29,9 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
   const [brandProfile, setBrandProfile] = useState<BrandProfile>(defaultBrandProfile);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  // NEW: Fixes panel state
+  const [showFixes, setShowFixes] = useState(false);
+  const [designId] = useState<string>(() => `design-${Date.now()}`); // Generate unique design ID
   // Autofix and preview state removed for Phase 1 compliance-only UI
 
 
@@ -41,11 +45,12 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
   async function handleAnalyzeClick() {
     setStatus("Analyzing design...");
     try {
-      // Pass brandProfile as payload to sandbox
+      // Use existing sandbox analysis (don't break existing flow)
       const analysis = await sandboxProxy.analyzeBrandCompliance({ brandProfile });
       setResult(analysis);
       setStatus("Analysis complete");
     } catch (err) {
+      console.error("Analysis error:", err);
       setStatus("Analysis failed");
     }
   }
@@ -268,6 +273,29 @@ const App = ({ addOnUISdk, sandboxProxy }: { addOnUISdk: AddOnSDKAPI; sandboxPro
                 <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>Your design is mostly compliant. Review for final approval.</div>
               </div>
             )}
+            {/* NEW: Autofix button (only show when score < 100% and text issues exist) */}
+            {(result.brandScore || 0) < 100 && result.textComplianceResults && result.textComplianceResults.length > 0 && (
+              <div style={{ marginTop: "12px" }}>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowFixes(!showFixes)}
+                  style={{ fontSize: "12px", padding: "6px 12px" }}
+                >
+                  {showFixes ? "Hide Autofix" : "Show Autofix"}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+        {/* NEW: Autofix Panel (conditionally rendered) */}
+        {showFixes && result && result.textComplianceResults && (
+          <div style={{ marginTop: "16px", borderTop: "1px solid #e0e0e0", paddingTop: "16px" }}>
+            <AutofixPanel
+              textComplianceResults={result.textComplianceResults}
+              brandProfile={brandProfile}
+              sandboxProxy={sandboxProxy}
+              onFixApplied={handleAnalyzeClick}
+            />
           </div>
         )}
       </div>

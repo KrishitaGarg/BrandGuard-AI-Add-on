@@ -2,6 +2,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./components/App";
+import { FixesProvider } from "./contexts/FixesContext";
 import { DocumentSandboxApi } from "../models/DocumentSandboxApi";
 
 import addOnUISdk, {
@@ -34,7 +35,9 @@ async function bootstrap() {
 
   const root = createRoot(container);
   root.render(
-    <App addOnUISdk={addOnUISdk} sandboxProxy={sandboxProxy} />
+    <FixesProvider>
+      <App addOnUISdk={addOnUISdk} sandboxProxy={sandboxProxy} />
+    </FixesProvider>
   );
 }
 

@@ -21,6 +21,7 @@ const { analyzeDesignRoute } = require("./routes/analyze");
 const { checkBrandRoute } = require("./routes/checkBrand");
 const { parseGuidelinesRoute } = require("./routes/parseGuidelines");
 const applyFixRoute = require("./routes/applyFix");
+const fixSuggestionsRoutes = require("./routes/fixSuggestions");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -109,6 +110,12 @@ app.post("/parse-brand-guidelines", parseGuidelinesRoute);
 app.post("/apply-fix", applyFixRoute);
 
 /**
+ * NEW: Auto-fix suggestions API routes
+ * These extend functionality without modifying existing routes
+ */
+app.use("/api/fixes", fixSuggestionsRoutes);
+
+/**
  * Start server
  */
 app.listen(PORT, () => {
@@ -119,6 +126,10 @@ app.listen(PORT, () => {
   console.log(`   POST /analyze - Analyze design for brand compliance`);
   console.log(`   POST /check-brand - Validate brand configuration`);
   console.log(`   POST /parse-brand-guidelines - Parse brand guidelines from text`);
+  console.log(`   POST /api/fixes/generate - Generate fix suggestions (NEW)`);
+  console.log(`   POST /api/fixes/apply - Apply a fix (NEW)`);
+  console.log(`   POST /api/fixes/apply-all - Apply multiple fixes (NEW)`);
+  console.log(`   GET  /api/fixes/:designId - Get fixes for design (NEW)`);
   console.log(`\n   Frontend (Adobe Express Add-on) located at:`);
   console.log(`   /my-adobe-addon/`);
   console.log(`   Should connect to: http://localhost:${PORT}\n`);

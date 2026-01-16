@@ -1,0 +1,196 @@
+.fix-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  background: #fff;
+  transition: box-shadow 0.2s;
+}
+
+.fix-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.fix-card-applied {
+  opacity: 0.7;
+  background: #f5f5f5;
+}
+
+.fix-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.fix-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.fix-card-checkbox {
+  cursor: pointer;
+}
+
+.fix-card-type-icon {
+  font-size: 20px;
+}
+
+.fix-card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  flex: 1;
+}
+
+.fix-card-applied-badge {
+  background: #2e7d32;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fix-card-severity-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.fix-card-severity-critical {
+  background: #ffebee;
+  color: #d32f2f;
+}
+
+.fix-card-severity-warning {
+  background: #fff3e0;
+  color: #ed6c02;
+}
+
+.fix-card-severity-info {
+  background: #e3f2fd;
+  color: #0288d1;
+}
+
+.fix-card-body {
+  margin-bottom: 12px;
+}
+
+.fix-card-description {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 14px;
+}
+
+.fix-card-values {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.fix-card-value {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fix-card-value-label {
+  font-weight: 600;
+  color: #666;
+  font-size: 13px;
+}
+
+.fix-card-value-content {
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.fix-card-recommended {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.fix-card-reasoning {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: #f0f7ff;
+  border-left: 3px solid #0288d1;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #555;
+}
+
+.fix-card-metadata {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
+  font-size: 12px;
+  color: #666;
+}
+
+.fix-card-metadata-item {
+  margin-bottom: 4px;
+}
+
+.fix-card-preview {
+  margin-top: 12px;
+  padding: 12px;
+  background: #fff9e6;
+  border: 1px solid #ffd700;
+  border-radius: 4px;
+}
+
+.fix-card-preview-item {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.fix-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.fix-card-btn {
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s;
+}
+
+.fix-card-preview-btn:hover {
+  background: #f5f5f5;
+}
+
+.fix-card-apply-btn {
+  background: #0066cc;
+  color: white;
+  border-color: #0066cc;
+}
+
+.fix-card-apply-btn:hover:not(:disabled) {
+  background: #0052a3;
+}
+
+.fix-card-apply-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fix-card-manual-review {
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+}

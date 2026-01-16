@@ -24,6 +24,7 @@ async function analyzeDesignLayers(layers, brandProfile) {
       typeof layer.fill === "string" &&
       !brandProfile.visualRules.colors.includes(layer.fill.toUpperCase())
     ) {
+      const recommendedColor = brandProfile.visualRules.colors[0] || "#000000";
       violations.push({
         id: `color-${layer.id}`,
         ruleId: "brand_colors",
@@ -38,8 +39,14 @@ async function analyzeDesignLayers(layers, brandProfile) {
         },
         elementId: layer.id,
         currentValue: layer.fill,
-        suggestedValue: brandProfile.visualRules.colors[0] || "#000000",
+        suggestedValue: recommendedColor,
         autoFixable: true,
+        fixAction: {
+          type: "update_color",
+          elementId: layer.id,
+          property: "fill",
+          value: recommendedColor,
+        },
       });
     }
 
@@ -49,6 +56,7 @@ async function analyzeDesignLayers(layers, brandProfile) {
       layer.fontFamily &&
       !brandProfile.visualRules.fonts.includes(layer.fontFamily)
     ) {
+      const recommendedFont = brandProfile.visualRules.fonts[0] || "Arial";
       violations.push({
         id: `font-${layer.id}`,
         ruleId: "brand_typography",
@@ -63,14 +71,22 @@ async function analyzeDesignLayers(layers, brandProfile) {
         },
         elementId: layer.id,
         currentValue: layer.fontFamily,
-        suggestedValue: brandProfile.visualRules.fonts[0] || "Arial",
+        suggestedValue: recommendedFont,
         autoFixable: true,
+        fixAction: {
+          type: "update_font",
+          elementId: layer.id,
+          property: "fontFamily",
+          value: recommendedFont,
+        },
       });
     }
 
     // Logo Validation
     if (layer.type === "logo") {
       if (layer.width < brandProfile.visualRules.logo.minWidth) {
+        const minWidth = brandProfile.visualRules.logo.minWidth;
+        const recommendedWidth = Math.max(minWidth, layer.width || minWidth);
         violations.push({
           id: `logo-size-${layer.id}`,
           ruleId: "logo_size",
@@ -85,22 +101,99 @@ async function analyzeDesignLayers(layers, brandProfile) {
           },
           elementId: layer.id,
           currentValue: `${layer.width}px`,
-          suggestedValue: `${brandProfile.visualRules.logo.minWidth}px`,
+          suggestedValue: `${recommendedWidth}px`,
           autoFixable: true,
+          fixAction: {
+            type: "resize_element",
+            elementId: layer.id,
+            property: "width",
+            value: recommendedWidth,
+            maintainAspectRatio: true,
+          },
         });
       }
     }
   }
 
-  // 2. Content Rules (AI Analysis)
+  // 2. Content Rules (Forbidden Phrases - Simple Pattern Matching)
   const textLayers = layers.filter((l) => l.type === "text" && l.content);
+  const forbiddenPhrases = brandProfile.contentRules?.forbiddenPhrases || [];
+  
+  for (const layer of textLayers) {
+    const text = layer.content || "";
+    const textLower = text.toLowerCase();
+    
+    // Check for forbidden phrases
+    for (const phrase of forbiddenPhrases) {
+      if (phrase && textLower.includes(phrase.toLowerCase())) {
+        // Find a suggested replacement (could be from preferred terms or generic)
+        const preferredTerms = brandProfile.contentRules?.preferredTerms || [];
+        const suggestedReplacement = preferredTerms.length > 0 
+          ? preferredTerms[0] 
+          : "[appropriate alternative]";
+        
+        violations.push({
+          id: `forbidden-phrase-${layer.id}-${Date.now()}`,
+          ruleId: "forbidden_phrase",
+          domain: "content",
+          severity: "high",
+          message: `Forbidden phrase detected: "${phrase}"`,
+          businessContext: {
+            reason: `The phrase "${phrase}" is not aligned with brand guidelines.`,
+            outcome: `Replacing this will ensure content aligns with brand messaging.`,
+          },
+          elementId: layer.id,
+          currentValue: phrase,
+          suggestedValue: suggestedReplacement,
+          autoFixable: true,
+          fixAction: {
+            type: "replace_text",
+            elementId: layer.id,
+            find: phrase,
+            replace: suggestedReplacement,
+          },
+        });
+      }
+    }
+  }
+
+  // 3. AI Analysis (if available)
   for (const layer of textLayers) {
     try {
-      const aiViolations = await analyzeContent(layer.content, brandProfile);
-      aiViolations.forEach((v) => {
-        v.elementId = layer.id;
-        violations.push(v);
-      });
+      const layerText = layer.content || "";
+      const aiViolations = await analyzeContent(layerText, brandProfile);
+      // Convert AI violations to our format and add fixAction if possible
+      if (aiViolations && Array.isArray(aiViolations.issues)) {
+        aiViolations.issues.forEach((issue) => {
+          const violation = {
+            id: `ai-${issue.id || `issue-${Date.now()}-${Math.random()}`}`,
+            ruleId: issue.type || "content_ai",
+            domain: "content",
+            severity: issue.severity || "medium",
+            message: issue.explanation || issue.message || "Content issue detected",
+            businessContext: {
+              reason: issue.explanation || "AI-detected content issue",
+              outcome: issue.suggestion || "Review and update content",
+            },
+            elementId: layer.id,
+            currentValue: layerText.substring(0, 50) + (layerText.length > 50 ? "..." : ""),
+            suggestedValue: issue.suggestion || "",
+            autoFixable: false, // AI suggestions typically need review
+          };
+          
+          // If AI provides autofix data, use it
+          if (issue.autofix) {
+            violation.autoFixable = true;
+            violation.fixAction = {
+              type: issue.autofix.type || "replace_text",
+              elementId: layer.id,
+              ...issue.autofix,
+            };
+          }
+          
+          violations.push(violation);
+        });
+      }
     } catch (error) {
       console.error(`Failed to analyze content for layer ${layer.id}:`, error);
       // Continue with other layers even if one fails
