@@ -19,7 +19,7 @@ start "BrandGuard MCP Server" cmd /k "cd server && node simple-server.cjs"
 timeout /t 2 /nobreak
 
 echo Starting Adobe Express UI (port 5241)...
-start "BrandGuard Express UI" cmd /k "cd brandguard-express && npm start"
+start "BrandGuard AI" cmd /k "cd brandguard-express && npm start"
 
 echo.
 echo ================================================================

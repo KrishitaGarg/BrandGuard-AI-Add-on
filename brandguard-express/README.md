@@ -22,7 +22,7 @@ This project has been created with _@adobe/create-ccweb-add-on_. As an example, 
 3. Open https://new.express.adobe.com in your browser.
 4. Open or create any design.
 5. Open the Add-ons panel and load the local add-on (development mode).
-6. Select **BrandGuard Express** and click **Analyze Design Structure**.
+6. Select **BrandGuard AI** and click **Analyze Design Structure**.
 
 The add-on analyzes the structural complexity of the design
 (layers, grouping, visibility, and locking) using the Document Sandbox runtime.
