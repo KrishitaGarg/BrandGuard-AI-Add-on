@@ -127,44 +127,112 @@ function start(): void {
           };
         });
 
-      // Ensure all issues have rewrite suggestions
-      // If Groq didn't provide suggestions, generate them
+      // Generate rewrite suggestions for fixable issues (tone, wording, formality)
+      // If Groq didn't provide suggestions, explicitly request them
+      const fixableIssueTypes = ['Tone mismatch', 'Brand voice deviation', 'Clarity', 'Risky phrasing'];
+      
       for (const issue of issues) {
         if (issue.rewriteSuggestions.length === 0 && issue.explanation) {
-          // Try to extract suggestion from the original backend issue
+          // Try to extract suggestion from the original backend issue first
           const originalIssue = (issue as any)._originalIssue;
           
           if (originalIssue?.suggestion && typeof originalIssue.suggestion === 'string' && originalIssue.suggestion.trim() !== text) {
-            // Use the suggestion field as a rewrite
             issue.rewriteSuggestions.push({
               style: 'neutral',
               text: originalIssue.suggestion.trim()
             });
             console.log("[AI] Added suggestion from original issue.suggestion field");
-          } else {
-            // If still no suggestion, create a basic one by applying word-level fixes
-            // This ensures every issue has at least a suggested fix
+          } else if (fixableIssueTypes.includes(issue.type)) {
+            // For fixable issues, explicitly call Groq to generate rewrite suggestion
             try {
-              const { applyAutofix } = await import("../services/autofixService");
-              const autofixResult = await applyAutofix({
-                text: text,
-                issues: [issue],
-                brandGuidelines: {
-                  preferredTerms: {},
-                  disallowedTerms: brandRules.content.forbiddenPhrases || [],
-                  toneRules: [brandRules.content.tone]
-                }
-              });
+              console.log("[AI] Generating rewrite suggestion for", issue.type);
               
-              if (autofixResult.success && autofixResult.fixedText !== text && autofixResult.fixedText.length > 0) {
-                issue.rewriteSuggestions.push({
-                  style: 'neutral',
-                  text: autofixResult.fixedText
-                });
-                console.log("[AI] Generated suggestion using word-level autofix");
+              // Build simple prompt for Groq
+              const toneInstruction = brandRules.content.tone === 'formal' ? 'Use a formal tone.' : 
+                                     brandRules.content.tone === 'friendly' ? 'Use a friendly tone.' : 
+                                     'Use a neutral tone.';
+              
+              const rewritePrompt = `Rewrite this sentence to match the brand guidelines. Keep meaning unchanged. ${toneInstruction}\n\nOriginal: "${text}"\n\nReturn only the rewritten sentence, nothing else.`;
+              
+              // Call backend with rewrite request
+              const rewriteResponse = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  design: { layers: [{ type: 'text', content: text }] },
+                  brandRules,
+                }),
+              });
+
+              if (rewriteResponse.ok) {
+                const rewriteResult = await rewriteResponse.json();
+                
+                // Extract suggested text from Groq response
+                let suggestedText = '';
+                
+                // Try multiple response formats from Groq
+                const aiResult = rewriteResult.result?.ai;
+                if (aiResult) {
+                  // Check summary field (Groq sometimes puts rewrite here)
+                  if (aiResult.summary && typeof aiResult.summary === 'string') {
+                    const summary = aiResult.summary.trim();
+                    if (summary !== text && summary.length > 0 && !summary.toLowerCase().includes('issue')) {
+                      suggestedText = summary;
+                    }
+                  }
+                  
+                  // Check issues array for suggestion
+                  if (!suggestedText && Array.isArray(aiResult.issues)) {
+                    for (const aiIssue of aiResult.issues) {
+                      if (aiIssue.suggestion && typeof aiIssue.suggestion === 'string') {
+                        const sug = aiIssue.suggestion.trim();
+                        if (sug !== text && sug.length > 0) {
+                          suggestedText = sug;
+                          break;
+                        }
+                      }
+                      if (aiIssue.autofix?.text && typeof aiIssue.autofix.text === 'string') {
+                        const sug = aiIssue.autofix.text.trim();
+                        if (sug !== text && sug.length > 0) {
+                          suggestedText = sug;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+                
+                if (suggestedText && suggestedText !== text && suggestedText.length > 0) {
+                  issue.rewriteSuggestions.push({
+                    style: 'neutral',
+                    text: suggestedText
+                  });
+                  console.log("[AI] Generated rewrite suggestion:", suggestedText.substring(0, 50) + '...');
+                } else {
+                  console.log("[AI] Groq didn't return usable suggestion, using fallback");
+                  // Fallback: use word-level autofix to ensure we have something
+                  const { applyAutofix } = await import("../services/autofixService");
+                  const autofixResult = await applyAutofix({
+                    text: text,
+                    issues: [issue],
+                    brandGuidelines: {
+                      preferredTerms: {},
+                      disallowedTerms: brandRules.content.forbiddenPhrases || [],
+                      toneRules: [brandRules.content.tone]
+                    }
+                  });
+                  
+                  if (autofixResult.success && autofixResult.fixedText !== text && autofixResult.fixedText.length > 0) {
+                    issue.rewriteSuggestions.push({
+                      style: 'neutral',
+                      text: autofixResult.fixedText
+                    });
+                    console.log("[AI] Generated suggestion using word-level autofix fallback");
+                  }
+                }
               }
             } catch (error) {
-              console.error("[AI] Error generating fallback suggestion:", error);
+              console.error("[AI] Error generating rewrite suggestion:", error);
             }
           }
         }
