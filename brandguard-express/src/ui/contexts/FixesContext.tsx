@@ -3,9 +3,13 @@
  * 
  * React context for managing fix suggestions state.
  * This is a NEW context that doesn't modify existing contexts.
+ * 
+ * Frontend-safe: NO backend references, NO env vars, NO globals.
+ * Uses FixesApi adapter which handles fallback to mocked data.
  */
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import * as FixesApi from '../../services/FixesApi';
 
 export interface Fix {
   id: string;
@@ -44,15 +48,13 @@ interface FixesContextType {
   applyingFix: string | null;
   error: string | null;
   generateFixes: (designId: string, brandId: string, industry?: string, complianceResults?: any, design?: any, brandRules?: any) => Promise<void>;
-  applyFix: (fixId: string, designId: string, design?: any) => Promise<void>;
-  applyAllFixes: (fixIds: string[], designId: string, design?: any) => Promise<void>;
+  applyFix: (fixId: string, designId: string, design?: any) => Promise<any[] | undefined>;
+  applyAllFixes: (fixIds: string[], designId: string, design?: any) => Promise<any[] | undefined>;
   getFixPreview: (fixId: string, designId: string) => Promise<any>;
   clearFixes: () => void;
 }
 
 const FixesContext = createContext<FixesContextType | undefined>(undefined);
-
-const BACKEND_URL = process.env.VITE_BACKEND_URL || 'http://localhost:3000';
 
 export function FixesProvider({ children }: { children: ReactNode }) {
   const [fixes, setFixes] = useState<Fix[]>([]);
@@ -72,33 +74,17 @@ export function FixesProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/fixes/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          designId,
-          brandId,
-          industry,
-          complianceResults,
-          design,
-          brandRules,
-        }),
-      });
+      // Use frontend-safe API adapter (handles fallback internally)
+      const result = await FixesApi.generateFixes(
+        designId,
+        brandId,
+        industry,
+        complianceResults,
+        design,
+        brandRules
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to generate fixes');
-      }
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setFixes(data.data.fixes || []);
-      } else {
-        throw new Error(data.error?.message || 'Failed to generate fixes');
-      }
+      setFixes(result.fixes || []);
     } catch (err: any) {
       console.error('Error generating fixes:', err);
       setError(err.message || 'Failed to generate fixes');
@@ -113,26 +99,10 @@ export function FixesProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/fixes/apply`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fixId,
-          designId,
-          design,
-        }),
-      });
+      // Use frontend-safe API adapter (handles fallback internally)
+      const result = await FixesApi.applyFix(fixId, designId, design);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to apply fix');
-      }
-
-      const data = await response.json();
-
-      if (data.success) {
+      if (result && result.commands) {
         // Update fix in state to mark as applied
         setFixes((prev) =>
           prev.map((fix) =>
@@ -141,9 +111,9 @@ export function FixesProvider({ children }: { children: ReactNode }) {
         );
 
         // Return commands for execution in Adobe Express
-        return data.data.commands;
+        return result.commands;
       } else {
-        throw new Error(data.error?.message || 'Failed to apply fix');
+        throw new Error('Failed to apply fix - no commands returned');
       }
     } catch (err: any) {
       console.error('Error applying fix:', err);
@@ -159,38 +129,21 @@ export function FixesProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/fixes/apply-all`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fixIds,
-          designId,
-          design,
-        }),
-      });
+      // Use frontend-safe API adapter (handles fallback internally)
+      const result = await FixesApi.applyAllFixes(fixIds, designId, design);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to apply fixes');
-      }
-
-      const data = await response.json();
-
-      if (data.success) {
+      if (result && result.commands) {
         // Update fixes in state to mark as applied
-        const appliedIds = data.data.details?.applied || [];
         setFixes((prev) =>
           prev.map((fix) =>
-            appliedIds.includes(fix.id) ? { ...fix, applied: true } : fix
+            fixIds.includes(fix.id) ? { ...fix, applied: true } : fix
           )
         );
 
         // Return commands for execution in Adobe Express
-        return data.data.commands;
+        return result.commands;
       } else {
-        throw new Error(data.error?.message || 'Failed to apply fixes');
+        throw new Error('Failed to apply fixes - no commands returned');
       }
     } catch (err: any) {
       console.error('Error applying fixes:', err);
@@ -203,24 +156,9 @@ export function FixesProvider({ children }: { children: ReactNode }) {
 
   const getFixPreview = async (fixId: string, designId: string) => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/fixes/preview`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fixId,
-          designId,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to get preview');
-      }
-
-      const data = await response.json();
-      return data.success ? data.data : null;
+      // Use frontend-safe API adapter (handles fallback internally)
+      const result = await FixesApi.getFixPreview(fixId, designId);
+      return result;
     } catch (err: any) {
       console.error('Error getting preview:', err);
       setError(err.message || 'Failed to get preview');
