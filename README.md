@@ -1,45 +1,83 @@
-BrandGuard AI – Adobe Express Add-On
+<h1>BrandGuard AI – Adobe Express Add-On</h1>
+<p><strong>AI-Powered Brand Compliance & Autofix using Model Context Protocol (MCP)</strong></p>
 
-AI-Powered Brand Compliance & Autofix using MCP
+<hr />
 
-BrandGuard AI is an Adobe Express Add-on that performs real-time brand compliance analysis and provides Grammarly-style autofix suggestions directly on creative designs.
+<h2>Overview</h2>
+<p>
+BrandGuard AI is an <strong>Adobe Express Add-on</strong> that performs real-time brand compliance
+analysis and provides <strong>Grammarly-style autofix suggestions</strong> directly on creative designs.
+</p>
 
-It is built on a Model Context Protocol (MCP) server, exposing brand governance as structured, deterministic tools rather than a chatbot.
+<p>
+The system is built on a <strong>Model Context Protocol (MCP)</strong> backend, exposing brand governance
+as structured, deterministic tools rather than a conversational chatbot.
+</p>
 
-Overview
+<hr />
 
-Design teams often ship assets that look visually correct but fail brand or legal checks due to:
+<h2>Problem</h2>
+<p>
+Design teams often ship visually polished assets that fail brand or legal review due to small but
+critical issues such as:
+</p>
 
-Disallowed claims
+<ul>
+  <li>Disallowed or risky marketing claims</li>
+  <li>Off-brand colors or fonts</li>
+  <li>Missing headlines or calls-to-action</li>
+  <li>Tone or industry compliance violations</li>
+</ul>
 
-Off-brand colors or fonts
+<p>
+Most existing tools only <em>flag</em> these issues, forcing designers into slow feedback and rework loops.
+</p>
 
-Missing headlines or CTAs
+<hr />
 
-Tone or industry compliance issues
+<h2>Solution</h2>
+<p>
+BrandGuard AI detects brand violations <strong>inside Adobe Express</strong> and helps designers
+<strong>fix them instantly</strong> without breaking creative flow.
+</p>
 
-BrandGuard AI detects these issues inside Adobe Express and helps designers fix them instantly, without breaking creative flow.
+<p>
+Instead of blocking progress, BrandGuard AI provides actionable, explainable fixes that can be
+applied or undone with a single click.
+</p>
 
-Key Features
+<hr />
 
-Real-Time Brand Compliance
-Analyzes Adobe Express canvas data (text, colors, fonts, layout)
+<h2>Key Features</h2>
 
-Grammarly-Style Auto-Fix (NEW)
-One-click fix suggestions generated dynamically from brand guidelines
-All fixes are undoable
+<ul>
+  <li>
+    <strong>Real-Time Brand Compliance</strong><br />
+    Analyzes Adobe Express canvas data including text, colors, fonts, and layout.
+  </li>
+  <li>
+    <strong>Grammarly-Style Auto-Fix (NEW)</strong><br />
+    One-click fix suggestions generated dynamically from brand guidelines. All fixes are undoable.
+  </li>
+  <li>
+    <strong>Deterministic Compliance Scoring</strong><br />
+    Predictable and explainable compliance scores from 0–100.
+  </li>
+  <li>
+    <strong>MCP-Based Architecture</strong><br />
+    Backend logic exposed as structured MCP tools, not free-form AI responses.
+  </li>
+  <li>
+    <strong>Database-Driven Rules (NEW)</strong><br />
+    No hardcoded colors, fonts, or claims. Brand and industry standards come from data models.
+  </li>
+</ul>
 
-Deterministic Scoring
-Predictable, explainable compliance scores (0–100)
+<hr />
 
-MCP-Based Architecture
-Backend implemented as an MCP-compatible server with structured tools
+<h2>Architecture</h2>
 
-Database-Driven Rules (NEW)
-No hardcoded colors, fonts, or claims
-Brand and industry rules come from data models
-
-Architecture
+<pre>
 Adobe Express Add-on (React + TypeScript)
             ↓
 Backend API (Node.js + Express)
@@ -51,52 +89,58 @@ MCP Server (TypeScript)
   └─ validate_brand
             ↓
 Compliance Engine (Pure Functions)
+</pre>
 
-Tech Stack
+<hr />
 
-Frontend: React, TypeScript, Vite
+<h2>Tech Stack</h2>
 
-Backend: Node.js, Express
+<ul>
+  <li><strong>Frontend:</strong> React, TypeScript, Vite</li>
+  <li><strong>Backend:</strong> Node.js, Express</li>
+  <li><strong>MCP Server:</strong> TypeScript</li>
+  <li><strong>AI Layer:</strong> LLM-assisted (optional)</li>
+  <li><strong>Platform:</strong> Adobe Express Add-on SDK</li>
+</ul>
 
-MCP Server: TypeScript
+<hr />
 
-AI Layer: LLM-assisted (optional)
+<h2>Running Locally</h2>
 
-Platform: Adobe Express Add-on SDK
+<h3>Prerequisites</h3>
+<ul>
+  <li>Node.js 18+</li>
+  <li>npm</li>
+  <li>Adobe Express account</li>
+</ul>
 
-Running Locally
-Prerequisites
+<h3>Setup</h3>
 
-Node.js 18+
-
-npm
-
-Adobe Express account
-
-Setup
-# Install backend
+<pre>
 cd backend
 npm install
 
-# Install MCP server
 cd ../server
 npm install
 
-# Install add-on
 cd ../brandguard-express
 npm install
+</pre>
 
-Environment Variables (Optional)
+<h3>Environment Variables (Optional)</h3>
 
-backend/.env
-
+<pre>
 PORT=3000
 GEMINI_API_KEY=your_api_key_here
+</pre>
 
-
+<p>
 Core compliance logic works without AI keys.
+</p>
 
-Start Services (3 Terminals)
+<h3>Start Services</h3>
+
+<pre>
 # Backend
 cd backend && npm start
 # http://localhost:3000
@@ -108,76 +152,81 @@ cd server && npm run dev
 # Adobe Express Add-on
 cd brandguard-express && npm start
 # https://localhost:5241
+</pre>
 
-MCP Server
+<hr />
 
-BrandGuard AI exposes functionality as structured MCP tools, not conversational prompts.
+<h2>MCP Server</h2>
 
-Available Tools
+<p>
+BrandGuard AI exposes functionality as <strong>structured MCP tools</strong>, ensuring deterministic and
+explainable behavior.
+</p>
 
-analyze_design
+<h3>Available Tools</h3>
+<ul>
+  <li>analyze_design</li>
+  <li>score_compliance</li>
+  <li>apply_fixes</li>
+  <li>validate_brand</li>
+</ul>
 
-score_compliance
+<hr />
 
-apply_fixes
+<h2>Auto-Fix Workflow (NEW)</h2>
 
-validate_brand
+<ol>
+  <li>Design is analyzed for brand violations</li>
+  <li>Fix suggestions are generated from brand guidelines</li>
+  <li>Designer reviews before / after values</li>
+  <li>Fixes are applied directly to the canvas</li>
+  <li>Compliance score improves on re-analysis</li>
+</ol>
 
-Example Invocation
-POST http://localhost:3001/mcp/invoke
+<p>
+All fixes are data-driven, explainable, and undoable.
+</p>
 
-Auto-Fix Workflow (NEW)
+<hr />
 
-Design is analyzed for violations
+<h2>Adobe Express Testing</h2>
 
-Fix suggestions are generated from brand rules
+<ol>
+  <li>Open <a href="https://new.express.adobe.com">Adobe Express</a></li>
+  <li>Enable development or local add-on mode</li>
+  <li>Load the <code>brandguard-express</code> directory</li>
+  <li>Create a non-compliant design</li>
+  <li>Run <strong>Analyze Brand Compliance</strong></li>
+  <li>Review issues and suggested fixes</li>
+  <li>Apply fixes and re-analyze</li>
+</ol>
 
-Designer reviews fixes (before / after)
+<hr />
 
-Fixes are applied to the Adobe Express canvas
+<h2>Why BrandGuard AI</h2>
 
-Compliance score improves on re-analysis
+<ul>
+  <li>Moves beyond detection to action</li>
+  <li>Uses MCP for enterprise-grade AI structure</li>
+  <li>Deterministic and explainable results</li>
+  <li>Embedded directly in the designer workflow</li>
+  <li>Non-blocking and creativity-first</li>
+</ul>
 
-All fixes are:
+<hr />
 
-Data-driven
+<h2>Documentation</h2>
 
-Explainable
+<ul>
+  <li>MCP Server: <code>server/mcp/README.md</code></li>
+  <li>Backend: <code>backend/README.md</code></li>
+  <li>Adobe Express Add-on: <code>brandguard-express/README.md</code></li>
+</ul>
 
-Undoable
+<hr />
 
-Adobe Express Testing
-
-Open https://new.express.adobe.com
-
-Enable local add-on / development mode
-
-Load brandguard-express
-
-Create a non-compliant design
-
-Run Analyze Brand Compliance
-
-View issues and suggested fixes
-
-Apply fixes → Re-analyze
-
-Why BrandGuard AI
-
-Goes beyond flagging → fixing
-
-Uses MCP for enterprise-grade AI structure
-
-Deterministic and explainable
-
-Built directly into the designer workflow
-
-Zero disruption to creativity
-
-Documentation
-
-MCP Docs: server/mcp/README.md
-
-Backend Docs: backend/README.md
-
-Add-on Docs: brandguard-express/README.md
+<h2>License</h2>
+<p>
+Private – BrandGuard AI<br />
+Hackathon submission and prototype
+</p>
