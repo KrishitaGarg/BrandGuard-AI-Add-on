@@ -17,7 +17,7 @@ function getApiBaseUrl(): string {
   // In Adobe Express, this might not work, so we'll fall back to mocked data
   try {
     // Use relative path - safe and doesn't require env vars
-    return '/api';
+    return 'https://brandguard-ai-add-on.onrender.com/api';
   } catch {
     // If we can't determine, return empty string to trigger fallback
     return '';
@@ -144,7 +144,7 @@ export async function generateFixes(
   const baseUrl = getApiBaseUrl();
   
   // If no base URL or we're in a restricted environment, use mocked data
-  if (!baseUrl || !baseUrl.startsWith('/')) {
+  if (!baseUrl) {
     return generateMockFixes(complianceResults, brandId);
   }
 

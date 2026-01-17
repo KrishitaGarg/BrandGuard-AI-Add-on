@@ -139,6 +139,45 @@ async function analyzeDesignTool(input) {
 }
 
 /**
+ * Adobe Express REST adapter
+ * Converts REST calls → MCP tool invocation
+ */
+app.post('/api/ai-suggestions/generate', async (req, res) => {
+  try {
+    const { canvasData, brandProfile, complianceResult } = req.body;
+
+    // Adapt REST payload → MCP input
+    const mcpInput = {
+      designSummary: {
+        brandScore: complianceResult?.score ?? 75,
+        issues: complianceResult?.violations?.map(v => v.ruleId) ?? []
+      }
+    };
+
+    // Call existing MCP logic
+    const result = await analyzeDesignTool(mcpInput);
+
+    // Adapt MCP output → Adobe Express format
+    res.json({
+      success: true,
+      data: {
+        headlineSuggestions: [result.insight],
+        bodyCopySuggestions: [result.summary],
+        ctaSuggestions: ['Apply Fixes', 'Review Design'],
+        supportingCopySuggestions: result.recommendations
+      }
+    });
+  } catch (error) {
+    console.error('[AI Suggestions Error]', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate AI suggestions'
+    });
+  }
+});
+
+
+/**
  * Start server
  */
 app.listen(PORT, () => {
