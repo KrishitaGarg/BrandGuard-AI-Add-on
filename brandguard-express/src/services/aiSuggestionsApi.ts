@@ -39,7 +39,7 @@ export async function generateAISuggestions(
   try {
     // Adobe Express does NOT proxy relative /api paths
     const response = await fetch(
-      'http://localhost:3000/api/ai-suggestions/generate',
+      'https://brandguard-ai-add-on.onrender.com/api/ai-suggestions/generate',
       {
         method: 'POST',
         headers: {
